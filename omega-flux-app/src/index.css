@@ -1,0 +1,35 @@
+/* src/index.css */
+
+:root {
+  /* Brand Colors */
+  --color-primary: #0f172a;      /* Deep Navy (from logo) */
+  --color-secondary: #f3efa8;    /* Sunshine Yellow (accent) */
+  --color-accent: #0ea5e9;       /* Bright Blue (for sliders and active states) */
+  
+  /* Typography */
+  --text-main: #334155;          /* Standard text */
+  --text-muted: #64748b;         /* Subtitles and labels */
+  
+  /* Layout & Backgrounds */
+  --bg-page: #ffffff;            /* App background */
+  --bg-panel: #f8fafc;           /* Control panel background */
+  --bg-canvas-container: #f1f5f9;/* Visualizer background */
+  
+  /* Borders */
+  --border-light: #e2e8f0;       /* Standard dividers */
+  --border-medium: #cbd5e1;      /* Emphasized dividers */
+}
+
+/* Base Browser Reset */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
