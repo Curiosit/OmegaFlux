@@ -1,67 +1,23 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import type { RoomDimensions, WindowSpecs, GridPoint, ColorPalette } from '../types';
+import { PALETTE_CONFIG } from '../types';
+
+interface UIWindow extends WindowSpecs {
+  id: string;
+}
 
 interface RoomVisualizerProps {
   room: RoomDimensions;
-  window: WindowSpecs;
+  windows: UIWindow[];
   gridData: GridPoint[];
   resolution: number;
   palette: ColorPalette;
+  zoom: number;
 }
 
-// --- COLOR MATH ENGINE ---
-const lerpColor = (c1: number[], c2: number[], t: number) => {
-  return c1.map((v, i) => Math.round(v + (c2[i] - v) * t));
-};
-
-const getGradientColor = (value: number, palette: ColorPalette) => {
-  const t = Math.max(0, Math.min(100, value)) / 100;
-  let stops: { t: number; c: number[] }[] = [];
-
-  if (palette === 'udi') {
-    // Standard UDI: Red (0) -> Yellow (50) -> Green (100)
-    stops = [
-      { t: 0, c: [239, 68, 68] },
-      { t: 0.5, c: [234, 179, 8] },
-      { t: 1, c: [34, 197, 94] }
-    ];
-  } else if (palette === 'omega') {
-    // Brand Theme: Navy (0) -> Accent Blue (50) -> Sunshine Yellow (100)
-    stops = [
-      { t: 0, c: [15, 23, 42] },
-      { t: 0.5, c: [14, 165, 233] },
-      { t: 1, c: [243, 239, 168] }
-    ];
-  } else {
-    // Blueprint: Dark Blue (0) -> White (100)
-    stops = [
-      { t: 0, c: [15, 23, 42] },
-      { t: 1, c: [255, 255, 255] }
-    ];
-  }
-
-  for (let i = 0; i < stops.length - 1; i++) {
-    if (t >= stops[i].t && t <= stops[i + 1].t) {
-      const range = stops[i + 1].t - stops[i].t;
-      const localT = (t - stops[i].t) / range;
-      const blended = lerpColor(stops[i].c, stops[i + 1].c, localT);
-      return `rgb(${blended[0]}, ${blended[1]}, ${blended[2]})`;
-    }
-  }
-  const last = stops[stops.length - 1].c;
-  return `rgb(${last[0]}, ${last[1]}, ${last[2]})`;
-};
-
-// --- LEGEND CSS GENERATOR ---
-const getLegendGradient = (palette: ColorPalette) => {
-  if (palette === 'udi') return 'linear-gradient(to right, rgb(239,68,68), rgb(234,179,8), rgb(34,197,94))';
-  if (palette === 'omega') return 'linear-gradient(to right, rgb(15,23,42), rgb(14,165,233), rgb(243,239,168))';
-  return 'linear-gradient(to right, rgb(15,23,42), rgb(255,255,255))';
-};
-
-export default function RoomVisualizer({ room, window, gridData, resolution, palette }: RoomVisualizerProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const scale = 80;
+export default function RoomVisualizer({ room, windows, gridData, resolution, palette, zoom }: RoomVisualizerProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [showFacades, setShowFacades] = useState<boolean>(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -69,74 +25,212 @@ export default function RoomVisualizer({ room, window, gridData, resolution, pal
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = room.width * scale;
-    canvas.height = room.depth * scale;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Render Heatmap
-    gridData.forEach((pt) => {
-      ctx.fillStyle = getGradientColor(pt.udi, palette);
-      ctx.fillRect(pt.x * scale, (room.depth - pt.y) * scale, resolution * scale, resolution * scale);
-    });
-
-// 2. Render Black Walls
-    const wallThick = 8;
-    ctx.fillStyle = '#000000'; 
-    ctx.fillRect(0, 0, wallThick, canvas.height); // Left
-    ctx.fillRect(canvas.width - wallThick, 0, wallThick, canvas.height); // Right
-    ctx.fillRect(0, 0, canvas.width, wallThick); // Top
-    ctx.fillRect(0, canvas.height - wallThick, canvas.width, wallThick); // Bottom
+    const baseScale = 55; 
+    const currentZoom = zoom || 1;
+    const scale = baseScale * currentZoom; 
     
-    // 3. Render Window (Make it slightly thicker than the wall so it 'pops')
-    const windowThick = 12; 
+    const wallLineWidth = Math.max(6, 8 * currentZoom);
+    const halfLine = wallLineWidth / 2;
+    const roomHeightPx = (room.height || 2.7) * scale;
+    const facadeOffset = 30 + halfLine;
+
+    // Dynamically calculate padding based on room height + facade offset so nothing ever clips
+    const padding = showFacades 
+      ? Math.ceil(facadeOffset + roomHeightPx + 50) 
+      : Math.round(50 * Math.max(1, currentZoom * 0.5));
+    
+    const roomPixelWidth = room.width * scale;
+    const roomPixelDepth = room.depth * scale;
+
+    canvas.width = roomPixelWidth + padding * 2;
+    canvas.height = roomPixelDepth + padding * 2;
+
+    // Clear canvas background
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const originX = padding;
+    const originY = padding;
+    const activePalette = PALETTE_CONFIG[palette] || PALETTE_CONFIG.omega;
+
+    // 1. Room Background Fill (Analytical Grid Area)
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(
-      (window.center - window.width / 2) * scale, 
-      canvas.height - windowThick, // Position to overlay the wall
-      window.width * scale, 
-      windowThick
-    );
-    
-    // Optional: Add a subtle border to the window to make it "snap" out
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.lineWidth = 1;
+    ctx.fillRect(originX, originY, roomPixelWidth, roomPixelDepth);
+
+    // 2. Grid Heatmap Points
+    if (gridData && gridData.length > 0) {
+      gridData.forEach((point) => {
+        const cx = originX + point.x * scale;
+        const cy = originY + (room.depth - point.y) * scale;
+        const size = Math.max(2, resolution * scale);
+
+        const val = Math.max(0, Math.min(100, point.udi));
+        ctx.fillStyle = activePalette.getColor(val);
+        ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+      });
+    }
+
+    // 3. Thick Room Wall Outline Box - Extended Fully Outward
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = wallLineWidth;
     ctx.strokeRect(
-      (window.center - window.width / 2) * scale, 
-      canvas.height - windowThick, 
-      window.width * scale, 
-      windowThick
+      originX - halfLine, 
+      originY - halfLine, 
+      roomPixelWidth + wallLineWidth, 
+      roomPixelDepth + wallLineWidth
     );
-  }, [room, window, gridData, resolution, palette]);
+
+    // 4. Draw Windows as White Openings fully inside the black wall stroke thickness
+    if (windows && windows.length > 0) {
+      windows.forEach((win) => {
+        const halfW = (win.width || 1) / 2;
+        const center = win.center || 0;
+
+        ctx.strokeStyle = '#ffffff'; 
+        ctx.lineWidth = wallLineWidth;
+        ctx.beginPath();
+
+        if (win.wall === 'South') {
+          const wx1 = originX + (center - halfW) * scale;
+          const wx2 = originX + (center + halfW) * scale;
+          const wy = originY + roomPixelDepth + halfLine;
+          ctx.moveTo(wx1, wy);
+          ctx.lineTo(wx2, wy);
+        } else if (win.wall === 'North') {
+          const wx1 = originX + (center - halfW) * scale;
+          const wx2 = originX + (center + halfW) * scale;
+          const wy = originY - halfLine;
+          ctx.moveTo(wx1, wy);
+          ctx.lineTo(wx2, wy);
+        } else if (win.wall === 'West') {
+          const wx = originX - halfLine;
+          const wy1 = originY + roomPixelDepth - (center - halfW) * scale;
+          const wy2 = originY + roomPixelDepth - (center + halfW) * scale;
+          ctx.moveTo(wx, wy1);
+          ctx.lineTo(wx, wy2);
+        } else if (win.wall === 'East') {
+          const wx = originX + roomPixelWidth + halfLine;
+          const wy1 = originY + roomPixelDepth - (center - halfW) * scale;
+          const wy2 = originY + roomPixelDepth - (center + halfW) * scale;
+          ctx.moveTo(wx, wy1);
+          ctx.lineTo(wx, wy2);
+        }
+        ctx.stroke();
+      });
+    }
+
+    // 5. Folded Flat Facades
+    if (showFacades) {
+      // South Facade (Below room)
+      const southX = originX;
+      const southY = originY + roomPixelDepth + facadeOffset;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(southX, southY, roomPixelWidth, roomHeightPx);
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(southX, southY, roomPixelWidth, roomHeightPx);
+
+      // North Facade (Above room)
+      const northX = originX;
+      const northY = originY - facadeOffset - roomHeightPx;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(northX, northY, roomPixelWidth, roomHeightPx);
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(northX, northY, roomPixelWidth, roomHeightPx);
+
+      // West Facade (Left)
+      const westX = originX - facadeOffset - roomHeightPx;
+      const westY = originY;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(westX, westY, roomHeightPx, roomPixelDepth);
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(westX, westY, roomHeightPx, roomPixelDepth);
+
+      // East Facade (Right)
+      const eastX = originX + roomPixelWidth + facadeOffset;
+      const eastY = originY;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(eastX, eastY, roomHeightPx, roomPixelDepth);
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(eastX, eastY, roomHeightPx, roomPixelDepth);
+
+      // Render Windows on Facades
+      windows.forEach((win) => {
+        const halfW = (win.width || 1) / 2;
+        const center = win.center || 0;
+        
+        const sillPx = (win.sill || 0) * scale;
+        const headPx = (win.head || 2.1) * scale;
+        const winH = Math.max(5, headPx - sillPx); 
+        const winW = (win.width || 1.0) * scale;
+
+        ctx.fillStyle = '#93c5fd';
+        ctx.strokeStyle = '#1e3a8a';
+        ctx.lineWidth = 1;
+
+        if (win.wall === 'South') {
+          const wx = southX + (center - halfW) * scale;
+          const wy = (southY + roomHeightPx) - sillPx - winH;
+          ctx.fillRect(wx, wy, winW, winH);
+          ctx.strokeRect(wx, wy, winW, winH);
+        } else if (win.wall === 'North') {
+          const wx = northX + (center - halfW) * scale;
+          const wy = (northY + roomHeightPx) - sillPx - winH;
+          ctx.fillRect(wx, wy, winW, winH);
+          ctx.strokeRect(wx, wy, winW, winH);
+        } else if (win.wall === 'West') {
+          const wy = westY + roomPixelDepth - (center + halfW) * scale;
+          const wx = westX + sillPx; 
+          ctx.fillRect(wx, wy, winH, winW);
+          ctx.strokeRect(wx, wy, winH, winW);
+        } else if (win.wall === 'East') {
+          const wy = eastY + roomPixelDepth - (center + halfW) * scale;
+          const wx = (eastX + roomHeightPx) - sillPx - winH;
+          ctx.fillRect(wx, wy, winH, winW);
+          ctx.strokeRect(wx, wy, winH, winW);
+        }
+      });
+    }
+
+  }, [room, windows, gridData, resolution, palette, zoom, showFacades]);
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* GRADIENT LEGEND */}
-      <div style={{ width: '100%', maxWidth: `${room.width * scale}px`, marginBottom: '1.5rem' }}>
-        <div style={{ 
-          height: '12px', 
-          width: '100%', 
-          borderRadius: '6px', 
-          background: getLegendGradient(palette),
-          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
-        }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)' }}>
-          <span>0% UDI</span>
-          <span>50%</span>
-          <span>100% UDI</span>
-        </div>
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button
+          onClick={() => setShowFacades(!showFacades)}
+          style={{
+            backgroundColor: showFacades ? 'var(--color-secondary)' : '#f3f4f6',
+            color: showFacades ? 'var(--color-primary)' : '#4b5563',
+            border: '1px solid var(--border-medium)',
+            padding: '0.35rem 0.85rem',
+            borderRadius: '6px',
+            fontSize: '0.8rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          {showFacades ? 'Hide Facades' : 'Show Facades'}
+        </button>
       </div>
 
-      {/* CANVAS */}
-      <canvas
-        ref={canvasRef}
-        style={{
-          backgroundColor: '#ffffff',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-          borderRadius: '8px',
-          maxWidth: '100%',
-          height: 'auto'
-        }}
-      />
+      <div style={{ width: '100%', overflowX: 'auto', display: 'flex', justifyContent: 'center' }}>
+        <canvas 
+          ref={canvasRef} 
+          style={{ 
+            display: 'block',
+            height: 'auto',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+            borderRadius: '8px', 
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0'
+          }} 
+        />
+      </div>
     </div>
   );
 }
