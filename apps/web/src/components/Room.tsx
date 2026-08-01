@@ -1,13 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import * as ort from 'onnxruntime-web';
-import { type RoomDimensions, type WindowSpecs, type WallType, type GridPoint, type ColorPalette, PALETTE_CONFIG } from '../types';
+import {
+  type RoomDimensions,
+  type WindowSpecs,
+  type WallType,
+  type GridPoint,
+  type ColorPalette,
+  PALETTE_CONFIG
+} from '../types';
+
 import { extractFeatures } from '../engine';
 import Slider from './Slider';
 import RoomVisualizer from './RoomVisualizer';
-
-// Import lightweight JavaScript models (m2cgen export)
-import { score as jsScoreLow } from './OmegaFluxLow.js';
-import { score as jsScoreUp } from './OmegaFluxUp.js';
 
 interface UIWindow extends WindowSpecs {
   id: string;
@@ -15,61 +19,146 @@ interface UIWindow extends WindowSpecs {
 
 const WALLS: WallType[] = ['South', 'West', 'North', 'East'];
 
-// Configure ONNX WASM path for browser execution
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/';
+ort.env.wasm.wasmPaths =
+  'https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/';
 
 let ortSessionLow: ort.InferenceSession | null = null;
 let ortSessionUp: ort.InferenceSession | null = null;
 
-async function loadOnnxSessions() {
-  if (!ortSessionLow) {
-    ortSessionLow = await ort.InferenceSession.create('./OmegaFlux_Models/omegaflux_low.onnx');
+
+let inferenceQueue: Promise<unknown> = Promise.resolve();
+
+async function loadSingleModel(path: string): Promise<ort.InferenceSession> {
+  const res = await fetch(path);
+
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch ${path}: ${res.status} ${res.statusText}`
+    );
   }
-  if (!ortSessionUp) {
-    ortSessionUp = await ort.InferenceSession.create('./OmegaFlux_Models/omegaflux_up.onnx');
+
+  const buffer = await res.arrayBuffer();
+
+  if (buffer.byteLength === 0) {
+    throw new Error(`${path} is empty.`);
   }
+
+  const text = new TextDecoder().decode(buffer.slice(0, 64));
+  if (
+    text.startsWith('<!DOCTYPE') ||
+    text.startsWith('<html') ||
+    text.includes('<head')
+  ) {
+    throw new Error(
+      `${path} is not an ONNX model. Server returned HTML instead.`
+    );
+  }
+
+  return await ort.InferenceSession.create(buffer);
 }
 
-async function runPrediction(features: number[], modelType: 'js' | 'onnx'): Promise<[number, number]> {
-  if (modelType === 'js') {
-    const low = jsScoreLow(features);
-    const up = jsScoreUp(features);
-    return [low, up];
-  } else {
-    await loadOnnxSessions();
-    const tensor = new ort.Tensor('float32', Float32Array.from(features), [1, features.length]);
-    if (!ortSessionLow || !ortSessionUp) throw new Error("ONNX sessions failed to load.");
 
-    const resultsLow = await ortSessionLow.run({ [ortSessionLow.inputNames[0]]: tensor });
-    const resultsUp = await ortSessionUp.run({ [ortSessionUp.inputNames[0]]: tensor });
+async function predictGrid(
+  featureBatch: number[][]
+): Promise<Array<[number, number]>> {
+  const currentTask = new Promise<Array<[number, number]>>((resolve, reject) => {
+    inferenceQueue = inferenceQueue.then(async () => {
+      try {
+        if (!ortSessionLow || !ortSessionUp) {
+          throw new Error('ONNX sessions are not initialized.');
+        }
 
-    const lowVal = Number(resultsLow[ortSessionLow.outputNames[0]].data[0]);
-    const upVal = Number(resultsUp[ortSessionUp.outputNames[0]].data[0]);
+        const numSensors = featureBatch.length;
+        const numFeatures = featureBatch[0].length;
+        const flatFeatures = new Float32Array(numSensors * numFeatures);
 
-    return [lowVal, upVal];
-  }
+        for (let i = 0; i < numSensors; i++) {
+          flatFeatures.set(featureBatch[i], i * numFeatures);
+        }
+
+        const tensor = new ort.Tensor('float32', flatFeatures, [numSensors, numFeatures]);
+
+        // Sequential execution avoids WASM thread collisions
+        const lowOutput = await ortSessionLow.run({ [ortSessionLow.inputNames[0]]: tensor });
+        const upOutput = await ortSessionUp.run({ [ortSessionUp.inputNames[0]]: tensor });
+
+        const lowData = lowOutput[ortSessionLow.outputNames[0]].data as Float32Array;
+        const upData = upOutput[ortSessionUp.outputNames[0]].data as Float32Array;
+
+        const results: Array<[number, number]> = [];
+        for (let i = 0; i < numSensors; i++) {
+          const lowVal = Math.max(0, Math.min(100, lowData[i]));
+          const upVal = Math.max(0, Math.min(100, upData[i]));
+          results.push([lowVal, upVal]);
+        }
+
+        resolve(results);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+
+  return currentTask;
 }
 
 export default function Room() {
-  const [room, setRoom] = useState<RoomDimensions>({ width: 5.2, depth: 4.5, height: 3.0 });
+  const [room, setRoom] = useState<RoomDimensions>({ width: 5.2, depth: 4.5 });
   const [activeTab, setActiveTab] = useState<WallType>('South');
-  
-  // Master window array tracking all windows across all 4 walls
+
   const [windows, setWindows] = useState<UIWindow[]>([
     { id: 'default-1', wall: 'South', width: 2.0, center: 2.6, sill: 0.8, head: 2.3 }
   ]);
 
   const [palette, setPalette] = useState<ColorPalette>('omega');
   const [viewMode, setViewMode] = useState<'useful' | 'low' | 'up'>('useful');
-  const [modelType, setModelType] = useState<'js' | 'onnx'>('js'); // Toggle between JS and ONNX models
-  const [zoom, setZoom] = useState<number>(1.2); // Default zoom scale multiplier
+  const [zoom, setZoom] = useState<number>(1.2);
   const [gridData, setGridData] = useState<GridPoint[]>([]);
   const [calcTime, setCalcTime] = useState<number>(0);
   const [avgUdi, setAvgUdi] = useState<number>(0);
 
+
+  const [isModelReady, setIsModelReady] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const resolution = 0.25;
 
-  // Filter windows for the currently selected tab
+
+  const isInitializing = useRef<boolean>(false);
+  const currentRunId = useRef<number>(0);
+
+
+  useEffect(() => {
+    if (ortSessionLow && ortSessionUp) {
+      setIsModelReady(true);
+      return;
+    }
+
+    if (isInitializing.current) return;
+    isInitializing.current = true;
+
+    async function initModels() {
+      try {
+        console.log('Initializing ONNX models on mount...');
+        const [low, up] = await Promise.all([
+          loadSingleModel('/models/OmegaFluxLow.onnx'),
+          loadSingleModel('/models/OmegaFluxUp.onnx')
+        ]);
+
+        ortSessionLow = low;
+        ortSessionUp = up;
+
+        console.log('✓ ONNX models loaded and ready.');
+        setIsModelReady(true);
+      } catch (err: any) {
+        console.error('Failed to initialize ONNX models:', err);
+        setLoadError(err.message || 'Failed to load ONNX models.');
+      }
+    }
+
+    initModels();
+  }, []);
+
   const activeWindows = useMemo(
     () => windows.filter((w) => w.wall === activeTab),
     [windows, activeTab]
@@ -78,7 +167,7 @@ export default function Room() {
   const handleAddWindow = () => {
     if (activeWindows.length >= 3) return;
     const maxAxis = activeTab === 'South' || activeTab === 'North' ? room.width : room.depth;
-    
+
     const newWindow: UIWindow = {
       id: crypto.randomUUID(),
       wall: activeTab,
@@ -98,32 +187,56 @@ export default function Room() {
     setWindows(windows.map((w) => (w.id === id ? { ...w, [field]: value } : w)));
   };
 
-  // Run spatial inference loop whenever room dimensions, windows configuration, viewMode, or modelType changes
+
   useEffect(() => {
+
+    if (!isModelReady) return;
+
     let isMounted = true;
+    const runId = ++currentRunId.current;
+
     const runSimulation = async () => {
       const start = performance.now();
-      const data: GridPoint[] = [];
-      let totalUdi = 0;
+      const coords: Array<{ x: number; y: number }> = [];
+      const featureBatch: number[][] = [];
+
 
       for (let x = 0.13; x < room.width; x += resolution) {
         for (let y = 0.13; y < room.depth; y += resolution) {
-          if (!isMounted) return;
-          const features = extractFeatures(x, y, room, windows);
-          const [low, up] = await runPrediction(features, modelType);
-          const useful = Math.max(0, 100 - low - up);
-
-          const value = viewMode === 'useful' ? useful : (viewMode === 'low' ? low : up);
-          data.push({ x, y, udi: value });
-          totalUdi += value;
+          coords.push({ x, y });
+          featureBatch.push(extractFeatures(x, y, room, windows));
         }
       }
-      
-      if (!isMounted) return;
-      const end = performance.now();
-      setGridData(data);
-      setCalcTime(end - start);
-      setAvgUdi(data.length > 0 ? totalUdi / data.length : 0);
+
+      if (coords.length === 0) return;
+
+      try {
+        const predictions = await predictGrid(featureBatch);
+
+
+        if (!isMounted || runId !== currentRunId.current) return;
+
+        const data: GridPoint[] = [];
+        let totalUdi = 0;
+
+        for (let i = 0; i < coords.length; i++) {
+          const [low, up] = predictions[i];
+          const useful = Math.max(0, 100 - low - up);
+          const value = viewMode === 'useful' ? useful : (viewMode === 'low' ? low : up);
+
+          data.push({ x: coords[i].x, y: coords[i].y, udi: value });
+          totalUdi += value;
+        }
+
+        const end = performance.now();
+        setGridData(data);
+        setCalcTime(end - start);
+        setAvgUdi(data.length > 0 ? totalUdi / data.length : 0);
+      } catch (err) {
+        if (isMounted && runId === currentRunId.current) {
+          console.error('Simulation run failed:', err);
+        }
+      }
     };
 
     runSimulation();
@@ -131,12 +244,11 @@ export default function Room() {
     return () => {
       isMounted = false;
     };
-  }, [room, windows, resolution, viewMode, modelType]);
+  }, [isModelReady, room, windows, resolution, viewMode]);
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       
-      {/* HEADER */}
       <header style={{ 
         display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2.5rem', 
         borderBottom: '4px solid var(--color-secondary)', paddingBottom: '1.5rem' 
@@ -147,14 +259,17 @@ export default function Room() {
             ΩΦ OmegaFlux Web Engine
           </h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
-            Multi-Sided Daylighting Optimization Surrogate Model via Physics-Informed Spatial Extraction.
+            Daylight prediction without neural networks: coordinate-free radiometric features for per-sensor machine learning and their transferability across building form.
+          </p>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
+            <i>Tabular data is all you need!</i>
           </p>
         </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '2.5rem', alignItems: 'start' }}>
         
-        {/* SIDEBAR CONTROLS */}
+
         <aside style={{ backgroundColor: 'var(--bg-panel)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-light)', borderTop: '4px solid var(--color-secondary)' }}>
           
           <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1.25rem', borderBottom: '2px solid var(--border-medium)', paddingBottom: '0.5rem', color: 'var(--color-primary)' }}>
@@ -163,7 +278,7 @@ export default function Room() {
           <Slider label="Room Width (m)" min={3.0} max={12.0} step={0.1} value={room.width} onChange={(w) => setRoom({ ...room, width: w })} />
           <Slider label="Room Depth (m)" min={3.0} max={12.0} step={0.1} value={room.depth} onChange={(d) => setRoom({ ...room, depth: d })} />
           
-          {/* WALL TABS */}
+
           <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginTop: '2rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
             Fenestration Walls
           </h2>
@@ -187,7 +302,7 @@ export default function Room() {
             })}
           </div>
 
-          {/* ACTIVE WALL WINDOW SLIDERS */}
+
           <div style={{ minHeight: '180px' }}>
             {activeWindows.length === 0 ? (
               <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>
@@ -221,7 +336,7 @@ export default function Room() {
             )}
           </div>
 
-          {/* DATA METRIC */}
+
           <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginTop: '2rem', marginBottom: '1rem', borderBottom: '2px solid var(--border-medium)', paddingBottom: '0.5rem', color: 'var(--color-primary)' }}>
             Data Metric
           </h2>
@@ -241,20 +356,7 @@ export default function Room() {
             ))}
           </div>
 
-          {/* MODEL RUNNER SELECTION */}
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginTop: '1.5rem', marginBottom: '1rem', borderBottom: '2px solid var(--border-medium)', paddingBottom: '0.5rem', color: 'var(--color-primary)' }}>
-            Inference Engine
-          </h2>
-          <select 
-            value={modelType} 
-            onChange={(e) => setModelType(e.target.value as 'js' | 'onnx')}
-            style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--border-medium)', backgroundColor: '#ffffff', color: 'var(--color-primary)', fontWeight: '600', cursor: 'pointer', outline: 'none', marginBottom: '1.5rem' }}
-          >
-            <option value="onnx">ONNX Runtime (Large Model)</option>
-            <option value="js">JavaScript m2cgen (Shallow Model)</option>
-          </select>
 
-          {/* COLOR GRADIENT */}
           <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginTop: '0.5rem', marginBottom: '1rem', borderBottom: '2px solid var(--border-medium)', paddingBottom: '0.5rem', color: 'var(--color-primary)' }}>
             Visualization Palette
           </h2>
@@ -270,7 +372,7 @@ export default function Room() {
 
         </aside>
 
-        {/* MAIN VISUALIZER CANVAS */}
+
         <main style={{ 
           display: 'flex', flexDirection: 'column', alignItems: 'center', 
           backgroundColor: '#ffffff', borderRadius: '12px', padding: '1.5rem', 
@@ -282,7 +384,7 @@ export default function Room() {
             </span>
             
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              {/* --- ZOOM CONTROLS --- */}
+
               <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '0.2rem' }}>
                 <button 
                   onClick={() => setZoom(Math.max(0.5, zoom - 0.2))} 
@@ -303,6 +405,12 @@ export default function Room() {
                 </button>
               </div>
 
+              {!isModelReady && (
+                <span style={{ backgroundColor: '#fef3c7', color: '#d97706', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontWeight: '700' }}>
+                  {loadError ? 'Model Error' : 'Loading ONNX...'}
+                </span>
+              )}
+
               <span style={{ backgroundColor: '#eef2ff', color: '#4f46e5', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontWeight: '700' }}>
                 Avg UDI: {avgUdi.toFixed(1)}%
               </span>
@@ -315,7 +423,8 @@ export default function Room() {
 
             </div>
           </div>
-         {/* --- COLOR GRADIENT LEGEND --- */}
+
+
           <div style={{ width: '100%', marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {PALETTE_CONFIG[palette].name} Scale (%)

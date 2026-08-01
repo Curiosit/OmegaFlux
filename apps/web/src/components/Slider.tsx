@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface SliderProps {
   label: string;
   min: number;
@@ -26,7 +24,7 @@ export default function Slider({ label, min, max, step, value, onChange }: Slide
         style={{ 
           width: '100%', 
           cursor: 'pointer',
-          accentColor: 'var(--color-accent)' /* Applies brand color to the slider thumb */
+          accentColor: 'var(--color-accent)'
         }}
       />
     </label>

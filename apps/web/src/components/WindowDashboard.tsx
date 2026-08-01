@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { RoomDimensions, WindowSpecs, WallType } from '../types';
-import { extractFeatures, predictOmegaFlux } from '../engine'; // Uncomment when ready to link engine
 
-// We add a unique ID to manage React state safely
+
 interface UIWindow extends WindowSpecs {
   id: string;
 }
@@ -14,7 +13,7 @@ export default function WindowDashboard() {
   const [room, setRoom] = useState<RoomDimensions>({ width: 10, depth: 10 });
   const [windows, setWindows] = useState<UIWindow[]>([]);
 
-  // Filter windows for the currently selected tab
+
   const activeWindows = useMemo(
     () => windows.filter((w) => w.wall === activeTab),
     [windows, activeTab]
@@ -26,7 +25,7 @@ export default function WindowDashboard() {
     const newWindow: UIWindow = {
       id: crypto.randomUUID(),
       wall: activeTab,
-      center: room.width / 2, // Default to middle of the wall
+      center: room.width / 2,
       width: 2.0,
       sill: 0.8,
       head: 2.2,
@@ -49,7 +48,7 @@ export default function WindowDashboard() {
     <div className="p-6 max-w-4xl mx-auto font-sans">
       <h1 className="text-2xl font-bold mb-6">OmegaFlux Multi-Window Configurator</h1>
 
-      {/* Global Room Controls */}
+
       <div className="bg-gray-100 p-4 rounded-lg mb-8 flex gap-6">
         <div>
           <label className="block text-sm font-semibold mb-1">Room Width (X-axis)</label>
@@ -69,7 +68,7 @@ export default function WindowDashboard() {
         </div>
       </div>
 
-      {/* Wall Navigation Tabs */}
+
       <div className="flex border-b mb-6">
         {WALLS.map((wall) => (
           <button
@@ -86,7 +85,7 @@ export default function WindowDashboard() {
         ))}
       </div>
 
-      {/* Active Tab Content */}
+
       <div className="space-y-6">
         {activeWindows.length === 0 ? (
           <p className="text-gray-500 italic">No windows present on the {activeTab} wall.</p>
@@ -149,7 +148,7 @@ export default function WindowDashboard() {
           ))
         )}
 
-        {/* Add Window Button (Hides if 3 are present) */}
+
         {activeWindows.length < 3 && (
           <button 
             onClick={handleAddWindow}

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import type { RoomDimensions, WindowSpecs, GridPoint, ColorPalette } from '../types';
 import { PALETTE_CONFIG } from '../types';
 
@@ -31,10 +31,10 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
     
     const wallLineWidth = Math.max(6, 8 * currentZoom);
     const halfLine = wallLineWidth / 2;
-    const roomHeightPx = (room.height || 2.7) * scale;
+    const roomHeightPx = (2.7) * scale;
     const facadeOffset = 30 + halfLine;
 
-    // Dynamically calculate padding based on room height + facade offset so nothing ever clips
+   
     const padding = showFacades 
       ? Math.ceil(facadeOffset + roomHeightPx + 50) 
       : Math.round(50 * Math.max(1, currentZoom * 0.5));
@@ -45,7 +45,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
     canvas.width = roomPixelWidth + padding * 2;
     canvas.height = roomPixelDepth + padding * 2;
 
-    // Clear canvas background
+
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -53,11 +53,11 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
     const originY = padding;
     const activePalette = PALETTE_CONFIG[palette] || PALETTE_CONFIG.omega;
 
-    // 1. Room Background Fill (Analytical Grid Area)
+
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(originX, originY, roomPixelWidth, roomPixelDepth);
 
-    // 2. Grid Heatmap Points
+
     if (gridData && gridData.length > 0) {
       gridData.forEach((point) => {
         const cx = originX + point.x * scale;
@@ -70,7 +70,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       });
     }
 
-    // 3. Thick Room Wall Outline Box - Extended Fully Outward
+
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = wallLineWidth;
     ctx.strokeRect(
@@ -80,7 +80,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       roomPixelDepth + wallLineWidth
     );
 
-    // 4. Draw Windows as White Openings fully inside the black wall stroke thickness
+
     if (windows && windows.length > 0) {
       windows.forEach((win) => {
         const halfW = (win.width || 1) / 2;
@@ -119,9 +119,9 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       });
     }
 
-    // 5. Folded Flat Facades
+
     if (showFacades) {
-      // South Facade (Below room)
+
       const southX = originX;
       const southY = originY + roomPixelDepth + facadeOffset;
       ctx.strokeStyle = '#cbd5e1';
@@ -130,7 +130,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       ctx.fillStyle = '#f1f5f9';
       ctx.fillRect(southX, southY, roomPixelWidth, roomHeightPx);
 
-      // North Facade (Above room)
+
       const northX = originX;
       const northY = originY - facadeOffset - roomHeightPx;
       ctx.strokeStyle = '#cbd5e1';
@@ -139,7 +139,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       ctx.fillStyle = '#f1f5f9';
       ctx.fillRect(northX, northY, roomPixelWidth, roomHeightPx);
 
-      // West Facade (Left)
+
       const westX = originX - facadeOffset - roomHeightPx;
       const westY = originY;
       ctx.strokeStyle = '#cbd5e1';
@@ -148,7 +148,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       ctx.fillStyle = '#f1f5f9';
       ctx.fillRect(westX, westY, roomHeightPx, roomPixelDepth);
 
-      // East Facade (Right)
+
       const eastX = originX + roomPixelWidth + facadeOffset;
       const eastY = originY;
       ctx.strokeStyle = '#cbd5e1';
@@ -157,7 +157,7 @@ export default function RoomVisualizer({ room, windows, gridData, resolution, pa
       ctx.fillStyle = '#f1f5f9';
       ctx.fillRect(eastX, eastY, roomHeightPx, roomPixelDepth);
 
-      // Render Windows on Facades
+
       windows.forEach((win) => {
         const halfW = (win.width || 1) / 2;
         const center = win.center || 0;

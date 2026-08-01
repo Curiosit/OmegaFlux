@@ -19,8 +19,6 @@ export interface GridPoint {
   udi: number;
 }
 
-// types.ts
-
 export type ColorPalette = 'omega' | 'udi' | 'blueprint';
 
 interface ColorStop {
@@ -28,11 +26,11 @@ interface ColorStop {
   c: [number, number, number]; // RGB array
 }
 
-// Generic helper to interpolate between an array of color stops
+
 const interpolateColor = (val: number, stops: ColorStop[]): string => {
   const t = Math.max(0, Math.min(1, val / 100));
   
-  // Find the two stops we are between
+
   let lower = stops[0];
   let upper = stops[stops.length - 1];
 
@@ -44,7 +42,7 @@ const interpolateColor = (val: number, stops: ColorStop[]): string => {
     }
   }
 
-  // Calculate local progress between the two stops
+
   const range = upper.t - lower.t;
   const localT = range === 0 ? 0 : (t - lower.t) / range;
 
