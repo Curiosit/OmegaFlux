@@ -5,8 +5,10 @@
 # OmegaFlux
 
 **Daylight prediction without neural networks**
+
 *Coordinate-free radiometric features for per-sensor machine learning
 and their transferability across building form.*
+
 ***Tabular Data is All You Need***
 
 [![Paper](https://img.shields.io/badge/paper-pending-lightgrey)](#citation)
