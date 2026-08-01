@@ -174,8 +174,8 @@ the pair exceeds GitHub's file-size guidance:
 
 | File | Size | Use |
 |---|---|---|
-| `omegaflux_xgb_low.json` | 10.6 MB | under-illuminated fraction |
-| `omegaflux_xgb_up.json` | 27.3 MB | over-illuminated fraction |
+| `omegaflux_xgb_low.joblib` | 7 MB | under-illuminated fraction |
+| `omegaflux_xgb_up.joblib` | 18 MB | over-illuminated fraction |
 | `omegaflux_low.onnx`, `omegaflux_up.onnx` | 5 / 15 MB | browser deployment |
 
 ```bash
