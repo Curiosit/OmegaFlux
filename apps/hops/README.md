@@ -16,7 +16,9 @@
 
 The **OmegaFlux Hops Server** exposes the trained 26-descriptor XGBoost daylight surrogate model to **McNeel Rhino / Grasshopper** via [Grasshopper Hops](https://developer.rhino3d.com/guides/grasshopper/hops-component/).
 
-It receives 3D room perimeter points, window corner geometry, and sensor grid points directly from Grasshopper, computes the 26 dimensionless radiometric features on the fly, and streams back Useful Daylight Illuminance ($\text{UDI}_{\text{useful}}$), under-lit ($\text{UDI}_{\text{low}}$), and over-lit/glare ($\text{UDI}_{\text{up}}$) predictions in milliseconds.
+It receives 3D room perimeter points, window corner geometry, and sensor grid points directly from Grasshopper, computes the 26 dimensionless radiometric features on the fly, and streams back Useful Daylight Illuminance (UDI<sub>useful</sub>), under-lit (UDI<sub>low</sub>), and over-lit/glare (UDI<sub>up</sub>) predictions in milliseconds.
+
+![hops.png](hops.png)
 
 ---
 
