@@ -81,6 +81,12 @@ python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\a
 pip install -e ".[dev]"
 ```
 
+Verify your installation and local models by running the test script:
+
+```bash
+python test_predict.py
+```
+
 Predict a floor plate from an existing model:
 
 ```python
@@ -167,9 +173,9 @@ Simulation output is deposited under `data/raw/`, one `zip` file per stratum:
 
 | File | Stratum | Rooms | Format |
 |---|---|---|---|
-| `bins_A-D_rectangular.xlsx` | axis-aligned, 1–2 apertures per wall | 4,500 | one row per room |
-| `bin_E_rotated.xlsx` | as A–D at 90°, 180°, 270° | 1,124 | one row per room |
-| `bin_F_lshaped.csv` | non-convex, 1–3 apertures on any wall | 1,125 | one row per room |
+| `study-ml-rect.xlsx` | bins A-D, axis-aligned, 1–2 apertures per wall | 4,500 | one row per room |
+| `study-ml-rotated.xlsx` | bin E, as A–D at 90°, 180°, 270° | 1,124 | one row per room |
+| `study-ml-shapes.csv` | bin F, non-convex, 1–3 apertures on any wall | 1,125 | one row per room |
 
 Each row carries the room geometry, aperture specification, the sensor grid and the annual results
 (`raw_UDI_low`, `raw_UDI_up`, and the sDA/ASE/DA aggregates). Bin F is CSV rather than XLSX because

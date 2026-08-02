@@ -18,9 +18,10 @@ from xgboost import XGBRegressor
 # CONFIGURATION
 # =============================================================================
 SEED = 42
-DATA_DIR = "data_processed"
+DATA_DIR = "data/processed"
 POOLED_CSV = os.path.join(DATA_DIR, "omegaflux_sensors_pooled.csv")
 OUT_DIR = "OmegaFlux_Models"
+MODEL_LOW_PATH = os.path.join(OUT_DIR, "omegaflux_xgb_low.joblib")
 
 TEST_FRACTION = 0.10
 VAL_FRACTION = 0.10
@@ -106,7 +107,7 @@ def split_params(params):
 def make_model(params, early_stop=True):
     p = dict(params)
     p.update(n_estimators=N_ESTIMATORS_MAX, random_state=SEED,
-             n_jobs=-1, verbosity=0, tree_method="hist")
+             n_jobs=-1, verbosity=1, tree_method="hist")
     if early_stop:
         p["early_stopping_rounds"] = EARLY_STOPPING_ROUNDS
     return XGBRegressor(**p)
@@ -115,8 +116,13 @@ def fit_pair(X_tr, y_tr_low, y_tr_up, X_val, y_val_low, y_val_up, params):
     p_low, p_up = split_params(params)
     m_low = make_model(p_low)
     m_up = make_model(p_up)
-    m_low.fit(X_tr, y_tr_low, eval_set=[(X_val, y_val_low)], verbose=False)
-    m_up.fit(X_tr, y_tr_up, eval_set=[(X_val, y_val_up)], verbose=False)
+    
+    log("Training lower-bound regressor (E1)...")
+    m_low.fit(X_tr, y_tr_low, eval_set=[(X_val, y_val_low)], verbose=100)
+    
+    log("Training upper-bound regressor (E1)...")
+    m_up.fit(X_tr, y_tr_up, eval_set=[(X_val, y_val_up)], verbose=100)
+    
     return m_low, m_up
 
 def predict_useful(m_low, m_up, X):
@@ -189,23 +195,34 @@ def train_and_eval(name, df_tr, df_te, features, params, seed=SEED):
 # MAIN
 # =============================================================================
 def main():
-    parser = argparse.ArgumentParser(description="OmegaFlux Stage 2: Training & Evaluation")
-    parser.add_argument("--mode", type=str, default="fast", choices=["fast", "full"], 
-                        help="Run mode: 'fast' (no tuning) or 'full' (with hyperparameter tuning and extensive tests)")
+    parser = argparse.ArgumentParser(description="OmegaFlux Model Training")
+    parser.add_argument("--mode", type=str, default="fast", choices=["fast", "full"], help="Training mode")
+    parser.add_argument("--force", action="store_true", help="Force re-training models even if they already exist")
     args = parser.parse_args()
+
+    print("=" * 78)
+    print(f"OmegaFlux - Stage 2: training and evaluation (Mode: {args.mode.upper()})")
+    print("=" * 78)
+
+    # Skip if models already exist and --force was NOT provided
+    if os.path.exists(MODEL_LOW_PATH) and not args.force:
+        print(f"[INFO] Trained models already exist in '{OUT_DIR}/'.")
+        print("[SKIP] Skipping model training. (Use --force to re-train)")
+        return
 
     is_full = (args.mode == "full")
 
+    # In fast mode, run ONLY the E1 main model. In full mode, run all experiments.
     RUN_TUNING = is_full
     RUN_CROSSVAL = is_full
     RUN_SIZE_SWEEP = is_full
     RUN_FEATURE_SELECTION = is_full
+    RUN_TOPOLOGY_TESTS = is_full
+    RUN_BASELINES = is_full
+    RUN_SHAP = is_full
+    RUN_FIGURES = is_full
     
     RUN_MAIN = True
-    RUN_TOPOLOGY_TESTS = True
-    RUN_BASELINES = True
-    RUN_SHAP = True
-    RUN_FIGURES = True
 
     rng = np.random.default_rng(SEED)
     os.makedirs(OUT_DIR, exist_ok=True)

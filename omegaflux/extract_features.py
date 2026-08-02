@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import argparse
 import os
 import platform
 import re
@@ -39,9 +40,9 @@ TARGET_SUM_TOLERANCE = 0.5
 OUTPUT_DIR = "data_processed"
 
 DATASETS = [
-    (True, "data/study-ml-2.xlsx", "rect", "Rectangular"),
-    (True, "data/study-ml-9-rotation-final.xlsx", "rect_rotated", "Rotated"),
-    (True, "data/study-ml-Lshapes-merged.csv", "randomized", "Randomized L-Shape"),
+    (True, "data/raw/study-ml-rect.xlsx",       "rect",         "Rectangular"),
+    (True, "data/raw/study-ml-rotated.xlsx",    "rect_rotated", "Rotated"),
+    (True, "data/raw/study-ml-shapes.csv",      "randomized",   "Randomized L-Shape"),
 ]
 
 # =============================================================================
@@ -736,7 +737,23 @@ def process_dataset(df_raw, suffix, label, sun_vectors, stats):
 # MAIN
 # =============================================================================
 
+POOLED_CSV_PATH = os.path.join("data", "processed", "omegaflux_sensors_pooled.csv")
+
 def main():
+    parser = argparse.ArgumentParser(description="OmegaFlux Feature Extraction")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing extracted feature table")
+    args = parser.parse_args()
+
+    print("=" * 78)
+    print("OmegaFlux - Stage 1: Feature Extraction")
+    print("=" * 78)
+    
+
+    if os.path.exists(POOLED_CSV_PATH) and not args.force:
+        print(f"[INFO] Found existing feature table at '{POOLED_CSV_PATH}'.")
+        print("[SKIP] Skipping feature extraction. (Use --force to overwrite)")
+        return
+
     np.random.seed(RANDOM_SEED)
 
     sun_vectors = generate_annual_sun_vectors(SITE_LATITUDE_DEG)
