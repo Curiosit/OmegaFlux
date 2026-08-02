@@ -44,18 +44,29 @@ The model is a pair of gradient-boosted tree ensembles. **There is no neural net
 
 ## What is in this repository
 
-```
+```text
 omegaflux/
 ├── data/
-│   ├── raw/            simulation output, one file per stratum
-│   └── processed/      per-grid-point descriptor table (generated)
-├── src/omegaflux/      the pipeline, four stages
-├── models/             trained models (see Releases)
+│   ├── raw/                  simulation output, one file per stratum
+│   └── processed/            per-grid-point descriptor table (generated)
 ├── apps/
-│   ├── web/            browser application, ONNX runtime, no server
-│   ├── hops/           Grasshopper server via Hops
-│   └── grasshopper/    Grasshopper definitions
-└── docs/               additional information
+│   ├── web/                  browser application, ONNX runtime, no server
+│   ├── hops/                 Grasshopper server via Hops
+│   └── grasshopper/          Grasshopper definitions
+├── models/                   trained models (see Releases)
+├── omegaflux/
+│   ├── __init__.py
+│   ├── README.md             Module-level documentation
+│   ├── generate_doe.py       Generates LHS simulation matrices
+│   ├── extract_features.py   Stage 1: raw -> per-grid-point table
+│   ├── train.py              Stage 2: table -> models + results
+│   ├── explain.py            TreeSHAP attribution
+│   ├── make_figures.py       Generate figures from artefacts
+│   ├── export_onnx.py        Export web-ready ONNX models
+│   └── fetch_models.py       Download pre-trained release models
+├── setup_env.py              Environment installer
+├── main.py                   Pipeline automation runner
+└── docs/                     additional information
 ```
 
 ---
@@ -80,19 +91,20 @@ windows = [dict(wall=0, centre=2.5, width=1.8, sill=0.9, height=1.5)]
 field = predict_room(room, windows, grid=0.25)          # -> x, y, UDI_useful
 print(f"{field.mean():.1f}% of occupied hours, mean over {len(field)} points")
 ```
+# Reproduce the whole study from the deposited simulation output:
+```
+# Optional: Generate LHS sampling matrices
+python -m omegaflux.generate_doe
 
-Reproduce the whole study from the deposited simulation output:
-
-```bash
+# Core Pipeline
 python -m omegaflux.extract_features     # raw  -> per-grid-point table  (~40 min)
-python -m omegaflux.train                # table -> models + results     (~3 h)
+python -m omegaflux.train --mode fast    # table -> models + results     (~3 h) (use --mode full for hyperparameter tuning)
 python -m omegaflux.explain              # models -> TreeSHAP attribution
 python -m omegaflux.make_figures         # everything -> figures
+
+# Export Models
+python -m omegaflux.export_onnx          # json -> web ready onnx models
 ```
-
-See [docs/REPRODUCE.md](docs/REPRODUCE.md) for hardware, runtimes and the expected numbers at each
-step.
-
 ---
 
 ## The four stages
@@ -117,8 +129,6 @@ between adjacent points at 0.25 m spacing would otherwise inflate reported accur
 Three paths are provided: a browser application, a Grasshopper server, and direct use inside an
 optimisation loop.
 
-[docs/METHODOLOGY.md](docs/METHODOLOGY.md) explains each stage in full;
-[docs/DESCRIPTORS.md](docs/DESCRIPTORS.md) specifies all 26 quantities with their code.
 
 ---
 
