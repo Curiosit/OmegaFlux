@@ -77,7 +77,8 @@ omegaflux/
 ```bash
 git clone https://github.com/Curiosit/omegaflux.git
 cd omegaflux
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 

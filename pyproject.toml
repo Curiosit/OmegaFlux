@@ -29,6 +29,8 @@ dev = [
     "pytest",
     "black",
     "isort"
+    "flask",
+    "ghhops-server"
 ]
 
 # Explicitly tell setuptools to find the omegaflux package package

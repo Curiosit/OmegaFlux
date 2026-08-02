@@ -42,7 +42,7 @@ def main():
         
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall("data")
+                zip_ref.extractall("data/raw")
             print(f"[OK] Successfully extracted {filename}")
         except zipfile.BadZipFile:
             print(f"[ERROR] {filename} is corrupt or not a valid zip file.")
