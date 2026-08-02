@@ -28,7 +28,7 @@ hops = [
 dev = [
     "pytest",
     "black",
-    "isort"
+    "isort",
     "flask",
     "ghhops-server"
 ]

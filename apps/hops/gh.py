@@ -13,7 +13,7 @@ hops: hs.HopsFlask = hs.Hops(app)
 TWO_PI = 2.0 * math.pi
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-MODEL_DIR = os.getenv("OMEGAFLUX_MODEL_DIR", os.path.join(BASE_DIR, "models"))
+MODEL_DIR = os.getenv("OMEGAFLUX_MODEL_DIR", os.path.join(BASE_DIR, "OmegaFlux_Models"))
 
 model_low_path = os.path.join(MODEL_DIR, "omegaflux_xgb_low.joblib")
 model_up_path = os.path.join(MODEL_DIR, "omegaflux_xgb_up.joblib")
