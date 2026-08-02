@@ -170,7 +170,7 @@ pip install -e ".[hops]"
 python apps/hops/hops_server.py           # then point a Hops component at http://localhost:5000
 ```
 
-Definitions are in [apps/hops/](apps/hops/) and [apps/optimization/](apps/optimization/)
+Definitions are in [apps/hops/](apps/hops/) and [apps/grasshopper/](apps/grasshopper/)
 
 ![apps/hops/hops.png](apps/hops/hops.png)
 
