@@ -21,14 +21,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Dependencies for Grasshopper/Hops server
 hops = [
     "flask",
     "ghhops-server"
 ]
-# Dependencies for development (testing, formatting, etc.)
 dev = [
     "pytest",
     "black",
     "isort"
 ]
+
+# Explicitly tell setuptools to find the omegaflux package package
+[tool.setuptools.packages.find]
+include = ["omegaflux*"]
