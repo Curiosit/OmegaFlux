@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omegaflux"
+version = "0.1.0"
+description = "Daylight prediction without neural networks"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "xgboost",
+    "matplotlib",
+    "joblib",
+    "onnxmltools",
+    "openpyxl"
+]
+
+[project.optional-dependencies]
+# Dependencies for Grasshopper/Hops server
+hops = [
+    "flask",
+    "ghhops-server"
+]
+# Dependencies for development (testing, formatting, etc.)
+dev = [
+    "pytest",
+    "black",
+    "isort"
+]

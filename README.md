@@ -58,6 +58,7 @@ omegaflux/
 │   ├── __init__.py
 │   ├── README.md             Module-level documentation
 │   ├── generate_doe.py       Generates LHS simulation matrices
+│   ├── unzip_data.py         Extracts raw simulation zip files
 │   ├── extract_features.py   Stage 1: raw -> per-grid-point table
 │   ├── train.py              Stage 2: table -> models + results
 │   ├── explain.py            TreeSHAP attribution
@@ -97,6 +98,7 @@ print(f"{field.mean():.1f}% of occupied hours, mean over {len(field)} points")
 python -m omegaflux.generate_doe
 
 # Core Pipeline
+python -m omegaflux.unzip_data           # Extracts data/raw zip files
 python -m omegaflux.extract_features     # raw  -> per-grid-point table  (~40 min)
 python -m omegaflux.train --mode fast    # table -> models + results     (~3 h) (use --mode full for hyperparameter tuning)
 python -m omegaflux.explain              # models -> TreeSHAP attribution

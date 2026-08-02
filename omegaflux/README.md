@@ -5,6 +5,7 @@ This directory contains the core Python scripts for the OmegaFlux daylight predi
 ## Pipeline Scripts
 
 *   `generate_doe.py`: Generates Latin Hypercube Sampling matrices for simulated architectural typologies.
+*   `unzip_data.py`: Scans the `data/raw/` folder and extracts any downloaded simulation zip files.
 *   `extract_features.py`: Converts room-level exports into a per-sensor tabular dataset of radiometric features (~40 min).
 *   `train.py`: Trains the XGBoost regressors on the extracted tabular data and outputs models (~3 h).
 *   `explain.py`: Generates TreeSHAP attributions from the trained models.
