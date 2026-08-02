@@ -87,6 +87,11 @@ Verify your installation and local models by running the test script:
 python test_predict.py
 ```
 
+Run the whole study in a fast mode
+```python
+python main.py --mode fast
+```
+
 Predict a floor plate from an existing model:
 
 ```python
