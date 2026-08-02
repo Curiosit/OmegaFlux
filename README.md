@@ -53,7 +53,7 @@ omegaflux/
 │   ├── web/                  browser application, ONNX runtime, no server
 │   ├── hops/                 Grasshopper server via Hops
 │   └── grasshopper/          Grasshopper definitions
-├── models/                   trained models (see Releases)
+├── OmegaFlux_Models/                   trained models (see Releases)
 ├── omegaflux/
 │   ├── __init__.py
 │   ├── README.md             Module-level documentation
@@ -86,6 +86,11 @@ Verify your installation and local models by running the test script:
 
 ```bash
 python test_predict.py
+```
+
+Run the whole study in a fast mode
+```python
+python main.py --mode fast
 ```
 
 Predict a floor plate from an existing model:
