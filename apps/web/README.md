@@ -17,6 +17,9 @@ The application allows users to dynamically configure room dimensions, adjust fe
 
 ---
 
+![web.png](web.png)
+
+---
 ## Tech Stack
 
 * **Framework:** React 18 + TypeScript + Vite
