@@ -53,7 +53,7 @@ omegaflux/
 │   ├── web/                  browser application, ONNX runtime, no server
 │   ├── hops/                 Grasshopper server via Hops
 │   └── grasshopper/          Grasshopper definitions
-├── models/                   trained models (see Releases)
+├── OmegaFlux_Models/                   trained models (see Releases)
 ├── omegaflux/
 │   ├── __init__.py
 │   ├── README.md             Module-level documentation
