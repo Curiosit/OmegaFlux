@@ -159,6 +159,8 @@ npm install
 npm run dev
 ```
 
+![apps/web/web.png](apps/web/web.png)
+
 ### Grasshopper
 
 A local Hops server exposing the model to Grasshopper.
@@ -168,8 +170,9 @@ pip install -e ".[hops]"
 python apps/hops/hops_server.py           # then point a Hops component at http://localhost:5000
 ```
 
-Definitions are in [apps/grasshopper/](apps/grasshopper/); see its README for the component wiring
-and the expected input geometry.
+Definitions are in [apps/hops/](apps/hops/) and [apps/optimization/](apps/optimization/)
+
+![apps/hops/hops.png](apps/hops/hops.png)
 
 ---
 
