@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+title: "OmegaFlux daylight prediction dataset"
+authors:
+  - family-names: "Płoszaj-Mazurek"
+    given-names: "Mateusz"
+version: "1.0.0"
+doi: "10.xxxx/zenodo.xxxxxxx"
+date-released: "2026-08-03"
