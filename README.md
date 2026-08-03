@@ -4,10 +4,7 @@
 
 # OmegaFlux
 
-**Daylight prediction without neural networks**
-
-*Coordinate-free radiometric features for per-sensor machine learning
-and their transferability across building form.*
+**Analytic radiometric descriptors enable geometry-flexible per-sensor daylight prediction without learned spatial encodings**
 
 ***Tabular Data is All You Need***
 
