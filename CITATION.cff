@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "OmegaFlux daylight prediction dataset"
+title: "Daylight prediction without neural networks: coordinate-free radiometric features for per-sensor machine learning and their transferability across building form"
 authors:
   - family-names: "Płoszaj-Mazurek"
     given-names: "Mateusz"
