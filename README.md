@@ -9,6 +9,7 @@
 ***Tabular Data is All You Need***
 
 [![Paper](https://img.shields.io/badge/paper-pending-lightgrey)](#citation)
+[![DOI](https://zenodo.org/badge/1300499774.svg)](https://doi.org/10.5281/zenodo.21781259)
 [![Code licence: MIT](https://img.shields.io/badge/code-MIT-green)](LICENSE)
 [![Data licence: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-green)](LICENSE-DATA)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
