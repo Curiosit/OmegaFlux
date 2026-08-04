@@ -3,7 +3,7 @@ import shutil
 import urllib.request
 
 # Directories
-MODELS_DIR = "models"
+MODELS_DIR = "OmegaFlux_Models"
 WEB_MODELS_DIR = os.path.join("apps", "web", "public", "models")
 
 # GitHub release URL base (update tag if necessary)
