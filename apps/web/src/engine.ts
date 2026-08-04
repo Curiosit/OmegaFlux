@@ -3,11 +3,6 @@ import type { RoomDimensions, WindowSpecs } from './types';
 const TWO_PI = 2.0 * Math.PI;
 
 
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  if (edge1 - edge0 === 0) return 0.0;
-  const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3.0 - 2.0 * t);
-}
 
 function distPtSeg2D(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
   const abX = bx - ax;
@@ -210,7 +205,7 @@ export const extractFeatures = (
 
       const dot = rdx * nx + rdy * ny;
       if (dot > 0.01) {
-        const [cx, cy, cz] = ap.center;
+        const [cx, cy] = ap.center;
         const dPlane = (cx - sx) * nx + (cy - sy) * ny;
         if (dPlane > 0) {
           const t = dPlane / dot;
