@@ -8,6 +8,7 @@
 
 ***Tabular Data is All You Need***
 
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://curiosit.github.io/OmegaFlux/)
 [![Paper](https://img.shields.io/badge/paper-pending-lightgrey)](#citation)
 [![DOI](https://zenodo.org/badge/1300499774.svg)](https://doi.org/10.5281/zenodo.21781259)
 [![Code licence: MIT](https://img.shields.io/badge/code-MIT-green)](LICENSE)
@@ -148,8 +149,12 @@ optimisation loop.
 
 ### Browser
 
+**[▶ Run it now — curiosit.github.io/OmegaFlux](https://curiosit.github.io/OmegaFlux/)**
+
 Runs entirely client-side with ONNX Runtime Web. No installation, no server, no data leaves the
-machine.
+machine. First load fetches ~21 MB of ONNX models; thereafter it is cached.
+
+To run locally:
 
 ```bash
 cd apps/web
@@ -206,7 +211,7 @@ the pair exceeds GitHub's file-size guidance:
 | `omegaflux_low.onnx`, `omegaflux_up.onnx` | 5 / 15 MB | browser deployment |
 
 ```bash
-# fetch into models/
+# fetch into OmegaFlux_Models/
 python -m omegaflux.fetch_models
 ```
 
