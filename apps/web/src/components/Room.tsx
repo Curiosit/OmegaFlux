@@ -19,12 +19,13 @@ interface UIWindow extends WindowSpecs {
 
 const WALLS: WallType[] = ['South', 'West', 'North', 'East'];
 
-ort.env.wasm.wasmPaths =
-  'https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/';
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+ort.env.wasm.numThreads = 1;
 
 let ortSessionLow: ort.InferenceSession | null = null;
 let ortSessionUp: ort.InferenceSession | null = null;
 
+const BASE = import.meta.env.BASE_URL;   // '/OmegaFlux/'
 
 let inferenceQueue: Promise<unknown> = Promise.resolve();
 
@@ -141,8 +142,8 @@ export default function Room() {
       try {
         console.log('Initializing ONNX models on mount...');
         const [low, up] = await Promise.all([
-          loadSingleModel('/models/OmegaFluxLow.onnx'),
-          loadSingleModel('/models/OmegaFluxUp.onnx')
+          loadSingleModel(`${BASE}models/OmegaFluxLow.onnx`),
+          loadSingleModel(`${BASE}models/OmegaFluxUp.onnx`)
         ]);
 
         ortSessionLow = low;
@@ -253,13 +254,16 @@ export default function Room() {
         display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2.5rem', 
         borderBottom: '4px solid var(--color-secondary)', paddingBottom: '1.5rem' 
       }}>
-        <img src="/web-app-manifest-192x192.png" alt="OmegaFlux Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+        <img src={`${import.meta.env.BASE_URL}web-app-manifest-192x192.png`} alt="OmegaFlux Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
         <div>
           <h1 style={{ fontWeight: '800', fontSize: '2.25rem', margin: 0, color: 'var(--color-primary)' }}>
             ΩΦ OmegaFlux Web Engine
           </h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
-            Daylight prediction without neural networks: coordinate-free radiometric features for per-sensor machine learning and their transferability across building form.
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.5rem' }}>
+            Daylight prediction without neural networks. Online daylight prediction check.
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontWeight: '600', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
+          Analytic radiometric descriptors enable geometry-flexible per-sensor daylight prediction without learned spatial encodings
           </p>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
             <i>Tabular data is all you need!</i>

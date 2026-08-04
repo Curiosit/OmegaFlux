@@ -1,8 +1,17 @@
 cff-version: 1.2.0
-title: "Daylight prediction without neural networks: coordinate-free radiometric features for per-sensor machine learning and their transferability across building form"
+title: "Analytic radiometric descriptors enable geometry-flexible per-sensor daylight prediction without learned spatial encodings"
 authors:
   - family-names: "Płoszaj-Mazurek"
     given-names: "Mateusz"
+    orcid: "https://orcid.org/0000-0002-4618-7849"
 version: "1.0.0"
 doi: "10.5281/zenodo.21781260"
 date-released: "2026-08-03"
+license: "MIT"
+keywords:
+  - daylight prediction
+  - machine learning
+  - radiometric descriptors
+  - building performance simulation
+  - computational design
+message: "Please cite this repository if you use the provided data or software."
