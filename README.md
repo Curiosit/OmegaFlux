@@ -39,6 +39,16 @@ The model is a pair of gradient-boosted tree ensembles. **There is no neural net
 | Unseen plan topology | R² = 0.716 (26 descriptors) / 0.869 (12 descriptors) |
 | Speed | 0.48 ms per grid point, ~200× a 45 s Radiance run |
 
+
+![docs/fig11.png](docs/fig11.png)
+<em>Unseen topology: Radiance CBDM (left) and OmegaFlux prediction (right), UDI-useful, 0.25 m grid.</em>
+
+Prediction transfers to plan topologies absent from training. Below, Radiance ground
+truth (left) against OmegaFlux prediction (right) for a U-shaped room — a form the
+model never saw during fitting. Accuracy degrades on this transfer (R² = 0.716 on the
+full descriptor set, 0.869 on the reduced 12-descriptor set) but the spatial structure
+of the field is recovered.
+
 ---
 
 ## What is in this repository
