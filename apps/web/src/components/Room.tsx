@@ -9,7 +9,7 @@ import {
   PALETTE_CONFIG
 } from '../types';
 
-import { extractFeatures } from '../engine';
+import { extractFeatures, FEATURE_NAMES } from '../engine';
 import Slider from './Slider';
 import RoomVisualizer from './RoomVisualizer';
 
@@ -24,6 +24,23 @@ ort.env.wasm.numThreads = 1;
 
 let ortSessionLow: ort.InferenceSession | null = null;
 let ortSessionUp: ort.InferenceSession | null = null;
+// Positions (within the 26 engine features) of the columns the loaded model expects.
+let modelFeatureIdx: number[] | null = null;
+
+async function loadFeatureIndices(path: string): Promise<number[]> {
+  const res = await fetch(path);
+  if (!res.ok) {
+    // v1.0.0 models shipped without features.json and used all 26 descriptors.
+    console.warn(`${path} not found; assuming all ${FEATURE_NAMES.length} features.`);
+    return FEATURE_NAMES.map((_, i) => i);
+  }
+  const spec = await res.json() as { features: string[] };
+  return spec.features.map((name) => {
+    const i = (FEATURE_NAMES as readonly string[]).indexOf(name);
+    if (i < 0) throw new Error(`Model feature "${name}" is not computed by engine.ts.`);
+    return i;
+  });
+}
 
 const BASE = import.meta.env.BASE_URL;   // '/OmegaFlux/'
 
@@ -69,12 +86,14 @@ async function predictGrid(
           throw new Error('ONNX sessions are not initialized.');
         }
 
-        const numSensors = featureBatch.length;
-        const numFeatures = featureBatch[0].length;
+        const idx = modelFeatureIdx ?? FEATURE_NAMES.map((_, i) => i);
+        const batch = featureBatch.map((row) => idx.map((i) => row[i]));
+        const numSensors = batch.length;
+        const numFeatures = idx.length;
         const flatFeatures = new Float32Array(numSensors * numFeatures);
 
         for (let i = 0; i < numSensors; i++) {
-          flatFeatures.set(featureBatch[i], i * numFeatures);
+          flatFeatures.set(batch[i], i * numFeatures);
         }
 
         const tensor = new ort.Tensor('float32', flatFeatures, [numSensors, numFeatures]);
@@ -141,10 +160,12 @@ export default function Room() {
     async function initModels() {
       try {
         console.log('Initializing ONNX models on mount...');
-        const [low, up] = await Promise.all([
+        const [low, up, idx] = await Promise.all([
           loadSingleModel(`${BASE}models/OmegaFluxLow.onnx`),
-          loadSingleModel(`${BASE}models/OmegaFluxUp.onnx`)
+          loadSingleModel(`${BASE}models/OmegaFluxUp.onnx`),
+          loadFeatureIndices(`${BASE}models/features.json`)
         ]);
+        modelFeatureIdx = idx;
 
         ortSessionLow = low;
         ortSessionUp = up;

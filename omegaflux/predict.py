@@ -1,3 +1,4 @@
+import json
 import os
 import math
 import numpy as np
@@ -12,7 +13,17 @@ from omegaflux.extract_features import (
     ROOM_HEIGHT_M
 )
 
-OUT_DIR = "OmegaFlux_Models"
+OUT_DIR = os.getenv("OMEGAFLUX_MODEL_DIR", os.path.join("OmegaFlux_Models", "core"))
+
+
+def load_feature_list(model_dir):
+    """Feature names the model in `model_dir` was trained on (written by train.py)."""
+    fj = os.path.join(model_dir, "features.json")
+    if os.path.exists(fj):
+        with open(fj) as fh:
+            return json.load(fh)["features"]
+    from omegaflux.features import FEATURES_ALL   # v1.0.0 models: all 26
+    return list(FEATURES_ALL)
 
 def generate_sensor_grid(room_corners, spacing):
     """
@@ -90,7 +101,7 @@ def parse_window_specs(room_corners, window_specs):
                     
     return formatted_windows
 
-def predict_room(room_corners, window_specs, grid=0.25):
+def predict_room(room_corners, window_specs, grid=0.25, model_dir=None):
     """
     Predicts UDI_useful for a given room layout.
     
@@ -100,6 +111,18 @@ def predict_room(room_corners, window_specs, grid=0.25):
     :return: Numpy array of [x, y, UDI_useful]
     """
     
+    model_dir = model_dir or OUT_DIR
+    for name in ("omegaflux_xgb_low.json", "omegaflux_xgb_up.json"):
+        if not os.path.exists(os.path.join(model_dir, name)):
+            raise FileNotFoundError(
+                f"No trained model in '{model_dir}' ({name} missing). Train one "
+                f"(python -m omegaflux.train --features core), fetch one "
+                f"(python -m omegaflux.fetch_models), or pass model_dir= / set OMEGAFLUX_MODEL_DIR "
+                f"to a folder that contains the models.")
+    feature_names = load_feature_list(model_dir)
+    # v1.0.0 models (no features.json) were trained with sill clearance clipped at zero.
+    legacy_sill = not os.path.exists(os.path.join(model_dir, "features.json"))
+
     sun_vectors = generate_annual_sun_vectors(SITE_LATITUDE_DEG)
     wall_segments = [(room_corners[i], room_corners[(i + 1) % len(room_corners)]) for i in range(len(room_corners))]
     
@@ -132,7 +155,9 @@ def predict_room(room_corners, window_specs, grid=0.25):
             l_char, ROOM_HEIGHT_M, sun_vectors, is_ccw
         )
         feats.pop("_omega_saturated", None)
-        feature_records.append(list(feats.values()))
+        if legacy_sill:
+            feats["Global_Sill_Clearance"] = max(0.0, feats["Global_Sill_Clearance"])
+        feature_records.append([feats[f] for f in feature_names])
         
     if not feature_records:
         return np.array([])
@@ -142,8 +167,8 @@ def predict_room(room_corners, window_specs, grid=0.25):
     m_low = xgb.XGBRegressor()
     m_up = xgb.XGBRegressor()
     
-    m_low.load_model(os.path.join(OUT_DIR, "omegaflux_xgb_low.json"))
-    m_up.load_model(os.path.join(OUT_DIR, "omegaflux_xgb_up.json"))
+    m_low.load_model(os.path.join(model_dir, "omegaflux_xgb_low.json"))
+    m_up.load_model(os.path.join(model_dir, "omegaflux_xgb_up.json"))
     
     p_low = np.clip(m_low.predict(X_pred), 0.0, 100.0)
     p_up = np.clip(m_up.predict(X_pred), 0.0, 100.0)

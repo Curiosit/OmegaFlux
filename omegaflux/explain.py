@@ -1,4 +1,5 @@
 import gc
+import argparse
 import json
 import os
 import time
@@ -10,26 +11,15 @@ from scipy.stats import spearmanr
 from sklearn.model_selection import GroupShuffleSplit
 
 SEED = 42
-DATA_DIR = "data_processed"
-OUT_DIR = "OmegaFlux_Models"
+DATA_DIR = "data/processed"   # same location train.py uses
+OUT_DIR = "OmegaFlux_Models/core"   # set by --out
 FIG_DIR = os.path.join(OUT_DIR, "figures_shap")
 POOLED_CSV = os.path.join(DATA_DIR, "omegaflux_sensors_pooled.csv")
 TEST_FRACTION = 0.10
 N_SHAP = 20_000
 CHUNK = 2_000
 
-FEATURES = [
-    "Total_Omega", "Global_Cos_Theta",
-    "Global_Sill_Clearance", "Global_Header_Clearance", "Global_inv_dmin2",
-    "Opaque_Wall_dmin", "Inner_Corner_Dmin", "Outer_Corner_Dmin",
-    "South_Weighted_Omega", "East_Weighted_Omega", "West_Weighted_Omega",
-    "Annual_Direct_Sun_Fraction", "Smooth_Mean_Depth", "Smooth_Depth_StdDev",
-    "Min_Occluder_Distance", "Window_Angular_Spread", "Window_Sky_Weighted_Omega",
-    "Occlusion_Multiplier", "Visible_Window_Count", "Mean_Window_Distance",
-    "Dominant_Win_Plane_Dist", "Dominant_Win_H_Offset",
-    "Dominant_Win_Ray_Forward", "Dominant_Win_Ray_Backward",
-    "Dominant_Win_Ray_Left", "Dominant_Win_Ray_Right",
-]
+from omegaflux.features import FEATURES_ALL as FEATURES   # replaced from features.json in configure()
 
 LABEL = {f: f for f in FEATURES}
 CLASS_LABEL = {
@@ -102,6 +92,21 @@ def beeswarm(sv, X, title, path, max_display=16):
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
+
+
+def configure(out_dir, data_dir):
+    """Point the module at one model folder and read its feature list from features.json."""
+    global OUT_DIR, FIG_DIR, POOLED_CSV, FEATURES, LABEL
+    OUT_DIR = out_dir
+    FIG_DIR = os.path.join(OUT_DIR, "figures_shap")
+    POOLED_CSV = os.path.join(data_dir, "omegaflux_sensors_pooled.csv")
+    fj = os.path.join(OUT_DIR, "features.json")
+    if os.path.exists(fj):
+        with open(fj) as fh:
+            FEATURES = json.load(fh)["features"]
+    else:
+        print(f"[WARN] {fj} not found; assuming all 26 descriptors")
+    LABEL = {f: f for f in FEATURES}
 
 def main():
     os.makedirs(FIG_DIR, exist_ok=True)
@@ -268,4 +273,9 @@ def main():
     print(f"Figures -> {FIG_DIR}/")
 
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=OUT_DIR, help="model folder (contains features.json)")
+    ap.add_argument("--data", default=DATA_DIR, help="folder with omegaflux_sensors_pooled.csv")
+    args = ap.parse_args()
+    configure(args.out, args.data)
     main()

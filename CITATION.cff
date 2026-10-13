@@ -1,17 +1,29 @@
 cff-version: 1.2.0
-title: "Analytic radiometric descriptors enable geometry-flexible per-sensor daylight prediction without learned spatial encodings"
+message: "If you use this software or data, please cite it as below."
+title: "OmegaFlux: daylight prediction from per-sensor geometric descriptors"
+abstract: >-
+  Code, simulation data and trained models for a per-sensor surrogate of annual Useful Daylight
+  Illuminance. Each grid point is described by geometric descriptors of its view through the windows
+  and of its position in the room (12 selected from 26 candidates), and two gradient-boosted tree
+  models predict the under- and over-illuminated fractions. Includes 6,749 Radiance-simulated rooms
+  (3,266,627 grid points, Warsaw climate), the experiments on transfer to unseen room shapes, a
+  Radiance convergence check, a browser application and a Grasshopper service.
 authors:
   - family-names: "Płoszaj-Mazurek"
     given-names: "Mateusz"
     orcid: "https://orcid.org/0000-0002-4618-7849"
-version: "1.0.0"
-doi: "10.5281/zenodo.21781260"
-date-released: "2026-08-03"
+    affiliation: "Faculty of Architecture, Warsaw University of Technology"
+version: "1.1.0"
+date-released: "2026-10-13"
+doi: "10.5281/zenodo.21781259"
+repository-code: "https://github.com/Curiosit/OmegaFlux"
+url: "https://curiosit.github.io/OmegaFlux/"
 license: "MIT"
 keywords:
   - daylight prediction
-  - machine learning
-  - radiometric descriptors
-  - building performance simulation
-  - computational design
-message: "Please cite this repository if you use the provided data or software."
+  - surrogate model
+  - gradient boosting
+  - solid angle
+  - useful daylight illuminance
+  - climate-based daylight modelling
+  - transfer to unseen geometry

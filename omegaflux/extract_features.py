@@ -37,7 +37,7 @@ CORNER_PENUMBRA_RADIUS_M = 0.40
 APPLY_LEGACY_TARGET_FILTER = False
 TARGET_SUM_TOLERANCE = 0.5
 
-OUTPUT_DIR = "data_processed"
+OUTPUT_DIR = os.path.join("data", "processed")   # where train.py reads it (was data_processed/)
 
 DATASETS = [
     (True, "data/raw/study-ml-rect.xlsx",       "rect",         "Rectangular"),
@@ -49,18 +49,7 @@ DATASETS = [
 # FEATURE SCHEMA
 # =============================================================================
 
-FEATURES_INDEPENDENT = [
-    "Total_Omega", "Global_Cos_Theta",
-    "Global_Sill_Clearance", "Global_Header_Clearance", "Global_inv_dmin2",
-    "Opaque_Wall_dmin", "Inner_Corner_Dmin", "Outer_Corner_Dmin",
-    "South_Weighted_Omega", "East_Weighted_Omega", "West_Weighted_Omega",
-    "Annual_Direct_Sun_Fraction", "Smooth_Mean_Depth", "Smooth_Depth_StdDev",
-    "Min_Occluder_Distance", "Window_Angular_Spread", "Window_Sky_Weighted_Omega",
-    "Occlusion_Multiplier", "Visible_Window_Count", "Mean_Window_Distance",
-    "Dominant_Win_Plane_Dist", "Dominant_Win_H_Offset",
-    "Dominant_Win_Ray_Forward", "Dominant_Win_Ray_Backward",
-    "Dominant_Win_Ray_Left", "Dominant_Win_Ray_Right",
-]
+from omegaflux.features import FEATURES_ALL as FEATURES_INDEPENDENT  # single source of truth
 
 assert len(FEATURES_INDEPENDENT) == 26
 
@@ -554,7 +543,7 @@ def extract_sensor_features(sx, sy, sz, room_corners, wall_segments, apertures,
         "_omega_saturated":           bool(omega_saturated),
         "Total_Omega":                clip(total_omega / TWO_PI),
         "Global_Cos_Theta":           clip(cos_theta),
-        "Global_Sill_Clearance":      clip((sum(i["sill"] * i["weight"] for i in clearance_data) / w_sum / room_height) if w_sum > 0 else 0.0),
+        "Global_Sill_Clearance":      clip((sum(i["sill"] * i["weight"] for i in clearance_data) / w_sum / room_height) if w_sum > 0 else 0.0, lo=-1.0),  # signed since v1.1.0
         "Global_Header_Clearance":    clip((sum(i["header"] * i["weight"] for i in clearance_data) / w_sum / room_height) if w_sum > 0 else 0.0),
         "Global_inv_dmin2":           float((1.0 / max(min(dmin_sq_list), 1e-4) if dmin_sq_list else 0.0) * (l_char ** 2)),
         "Opaque_Wall_dmin":           clip(max(0.05, min_opaque) / l_char),

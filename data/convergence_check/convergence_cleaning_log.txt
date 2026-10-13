@@ -1,0 +1,29 @@
+Generated 2026-10-05T07:37:41
+
+OK rect/ab8: 50 rooms from omegaflux-check-WO-A1c.xlsx
+OK rect_rotated/ab8: 50 rooms from omegaflux-check-WO-A1rotated.xlsx
+OK randomized/ab8: 50 rooms from study-ml-12-Lshapes-corrected-second50study.xlsx
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_99: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_108: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_128: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_137: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_225: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_409: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_440: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_468: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_851: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_1044: not in the selection for this run
+DROP [randomized/ab12] study-ml-12-Lshapes-corrected-second50study-ab12.xlsx: Expert_LShape_1078: not in the selection for this run
+OK randomized/ab12: 10 rooms from study-ml-12-Lshapes-corrected-second50study-ab12.xlsx
+OK rect/ab5: 50 rooms from study-ml-rect.xlsx
+OK rect_rotated/ab5: 50 rooms from study-ml-rotated.xlsx
+OK randomized/ab5: 50 rooms from study-ml-shapes.csv
+
+Summary
+       class     settings  rooms
+  randomized      ab5+ab8     40
+  randomized ab5+ab8+ab12     10
+        rect      ab5+ab8     50
+rect_rotated      ab5+ab8     50
+
+150 rooms, 85,782 sensor rows written to /home/claude/w/conv_out/

@@ -1,0 +1,20 @@
+{
+  "feature_set": "core",
+  "features": [
+    "Total_Omega",
+    "Global_Cos_Theta",
+    "Global_Sill_Clearance",
+    "Outer_Corner_Dmin",
+    "South_Weighted_Omega",
+    "East_Weighted_Omega",
+    "West_Weighted_Omega",
+    "Annual_Direct_Sun_Fraction",
+    "Smooth_Depth_StdDev",
+    "Window_Angular_Spread",
+    "Window_Sky_Weighted_Omega",
+    "Dominant_Win_Ray_Forward"
+  ],
+  "changes": {
+    "Global_Sill_Clearance": "signed since v1.1.0 (negative when the sill is above the work plane); clipped at 0 in v1.0.0"
+  }
+}

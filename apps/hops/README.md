@@ -5,7 +5,7 @@
 # OmegaFlux Hops Server (`apps/hops`)
 
 **Real-time Grasshopper daylight predictions via Hops and HTTP REST API**
-*Physics-informed 26-feature surrogate model server for McNeel Rhino / Grasshopper.*
+*Per-sensor daylight surrogate served to McNeel Rhino / Grasshopper.*
 
 [![License: MIT](https://img.shields.io/badge/code-MIT-green)](../../LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](../../pyproject.toml)
@@ -14,9 +14,9 @@
 
 ---
 
-The **OmegaFlux Hops Server** exposes the trained 26-descriptor XGBoost daylight surrogate model to **McNeel Rhino / Grasshopper** via [Grasshopper Hops](https://developer.rhino3d.com/guides/grasshopper/hops-component/).
+The **OmegaFlux Hops Server** exposes the trained XGBoost daylight surrogate model (12 descriptors for v1.1.0 models, read from `features.json`) to **McNeel Rhino / Grasshopper** via [Grasshopper Hops](https://developer.rhino3d.com/guides/grasshopper/hops-component/).
 
-It receives 3D room perimeter points, window corner geometry, and sensor grid points directly from Grasshopper, computes the 26 dimensionless radiometric features on the fly, and streams back Useful Daylight Illuminance (UDI<sub>useful</sub>), under-lit (UDI<sub>low</sub>), and over-lit/glare (UDI<sub>up</sub>) predictions in milliseconds.
+It receives 3D room perimeter points, window corner geometry, and sensor grid points directly from Grasshopper, computes the descriptors on the fly, and streams back Useful Daylight Illuminance (UDI<sub>useful</sub>), under-lit (UDI<sub>low</sub>), and over-lit/glare (UDI<sub>up</sub>) predictions in milliseconds.
 
 ![hops.png](hops.png)
 
