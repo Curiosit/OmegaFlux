@@ -8,9 +8,9 @@ researcher needs in order to reproduce the study without re-running 6,749 annual
 
 | File | Stratum | Rooms | Rows | Size |
 |---|---|---|---|---|
-| `bins_A-D_rectangular.xlsx.zip` | axis-aligned rectangular, four fenestration patterns | 4,500 | 4,500 | 15 MB |
-| `bin_E_rotated.xlsx.zip` | as A–D, at 90°, 180° and 270° | 1,124 | 1,125 | 6 MB |
-| `bin_F_lshaped.csv.zip` | non-convex L-shaped, 1–3 apertures on any eligible wall | 1,125 | 1,125 | 14 MB |
+| `study-ml-rect.xlsx.zip` | axis-aligned rectangular, four fenestration patterns | 4,500 | 4,500 | 15 MB |
+| `study-ml-rotated.xlsx.zip` | as A–D, at 90°, 180° and 270° | 1,124 | 1,125 | 7 MB |
+| `study-ml-shapes.csv.zip` | non-convex L-shaped, 1–3 apertures on any eligible wall | 1,125 | 1,125 | 14 MB |
 
 One row is one simulated room. Bin E contains 1,125 rows but 1,124 distinct configurations; the
 duplicate is retained as exported and is de-duplicated by group key during extraction.
@@ -65,22 +65,24 @@ Identical across the three files apart from how room geometry is expressed.
 Per-grid-point arrays are semicolon-separated and align element-by-element with
 `Sensor_location_matrix`. 
 
-The `culled_` variants exclude a margin near the walls. The study uses the uncounted values.
+The `culled_` variants exclude a margin near the walls. The study uses the unculled values.
 
 ## Simulation settings
 
 | | |
 |---|---|
-| Engine | Radiance via Honeybee / Ladybug Tools |
+| Engine | Radiance 5.4 via Honeybee 1.10 / Ladybug Tools |
 | Recipe | Annual daylight, daylight-coefficient method |
-| Sky | Perez all-weather |
+| Sky | Perez all-weather, 145 Tregenza patches |
 | Weather | Warsaw Okęcie, 52.17° N, 20.97° E |
 | Ambient parameters | `-ab 5 -ad 5000 -lw 2e-05` |
-| Reflectances | ceiling 0.80, walls 0.50, floor 0.20, ground 0.20 |
-| Glazing | visible transmittance 0.65, frameless |
+| Reflectances | ceiling 0.80, walls 0.50, floor 0.20, ground 0.10 |
+| Glazing | visible transmittance 0.64, frameless |
 | Grid | 0.25 m spacing, 0.80 m above floor |
 | External obstruction | **None.** `Canyon_HW` = 0 in every row |
 | UDI thresholds | 100 lux and 3000 lux |
+| Occupied hours | 8:00–18:00, every day of the year |
+| Room height | 2.7 m |
 
 
 ## Processed data
@@ -97,8 +99,18 @@ against the one used for the paper.
 
 ## Reuse
 
-The raw data is usable independently of this model, citing the author and the journal article. 
-It is, as far as I am aware, the largest openly
+The raw data is usable independently of this model; please cite the Zenodo deposit (see the main README). It is, as far as I am aware, the largest openly
 available set of per-grid-point annual daylight results for parametrically varied room geometry,
 and it may suit work on other daylight metrics, on alternative surrogate architectures, or as a
-benchmark for geometric generalisation. Licence is CC BY 4.0; the citation is in the main README.
+benchmark for geometric generalisation. Licence is CC BY 4.0.
+
+
+## Convergence check (`raw/convergence/`, `convergence_check/`)
+
+150 held-out rooms (50 rectangular, 50 rotated, 50 L-shaped) were re-simulated with only the Radiance
+parameters changed: `-ab 8 -ad 20000 -lw 5e-06`, and ten L-shapes additionally at
+`-ab 12 -ad 20000 -lw 1e-06`. The raw Grasshopper exports are in `raw/convergence/`;
+`python -m omegaflux.prepare_convergence_data` validates them, joins the original `-ab 5` values from
+the files above, and writes the cleaned tables documented in `convergence_check/README_convergence.md`.
+Rooms were selected with `python -m omegaflux.select_convergence_rooms`, which reproduces the held-out
+partition of `train.py` and stratifies by plan class, aperture configuration and orientation.

@@ -22,15 +22,22 @@ data/processed/
 # EXPLICITLY ALLOW ZIP FILES (For the deposited raw strata)
 !*.zip
 
+# Convergence-check data is small and committed (see data/convergence_check/README_convergence.md)
+!data/convergence_check/*.csv
+# Raw convergence re-simulations (about 1.2 MB, read by prepare_convergence_data)
+!data/raw/convergence/*.xlsx
+
 # ==========================================
 # Models & ML Outputs
 # ==========================================
 *.joblib
 *.onnx
+# ...except the models the browser app ships with (GitHub Pages builds from the repository)
+!apps/web/public/models/*.onnx
 
 # Omit XGBoost JSON model files and manifests
 # (Scoped to specific folders to prevent ignoring apps/web/package.json)
-OmegaFlux_Models/*.json
+OmegaFlux_Models/**/*.json
 models/*.json
 
 # Temporary TreeSHAP/Training outputs

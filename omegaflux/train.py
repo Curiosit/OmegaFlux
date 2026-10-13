@@ -20,8 +20,11 @@ from xgboost import XGBRegressor
 SEED = 42
 DATA_DIR = "data/processed"
 POOLED_CSV = os.path.join(DATA_DIR, "omegaflux_sensors_pooled.csv")
-OUT_DIR = "OmegaFlux_Models"
+OUT_DIR = "OmegaFlux_Models"          # overridden by --out / --features in main()
 MODEL_LOW_PATH = os.path.join(OUT_DIR, "omegaflux_xgb_low.joblib")
+ALL_STEPS = ["tune", "cv", "topology", "baselines", "fs", "size", "shap", "figures"]
+MODEL_SEED = 42   # randomness of model fitting only (subsampling, validation split); data splits keep SEED
+TARGET = "components"   # "components": two models (UDI_low, UDI_up); "useful": one model on UDI_useful (ablation)
 
 TEST_FRACTION = 0.10
 VAL_FRACTION = 0.10
@@ -53,18 +56,7 @@ DEFAULT_PARAMS = dict(max_depth=9, min_child_weight=5, learning_rate=0.07,
 # =============================================================================
 # FEATURE SCHEMA
 # =============================================================================
-FEATURES = [
-    "Total_Omega", "Global_Cos_Theta",
-    "Global_Sill_Clearance", "Global_Header_Clearance", "Global_inv_dmin2",
-    "Opaque_Wall_dmin", "Inner_Corner_Dmin", "Outer_Corner_Dmin",
-    "South_Weighted_Omega", "East_Weighted_Omega", "West_Weighted_Omega",
-    "Annual_Direct_Sun_Fraction", "Smooth_Mean_Depth", "Smooth_Depth_StdDev",
-    "Min_Occluder_Distance", "Window_Angular_Spread", "Window_Sky_Weighted_Omega",
-    "Occlusion_Multiplier", "Visible_Window_Count", "Mean_Window_Distance",
-    "Dominant_Win_Plane_Dist", "Dominant_Win_H_Offset",
-    "Dominant_Win_Ray_Forward", "Dominant_Win_Ray_Backward",
-    "Dominant_Win_Ray_Left", "Dominant_Win_Ray_Right",
-]
+from omegaflux.features import FEATURES_ALL as FEATURES, FEATURE_SETS, FEATURE_CHANGES
 
 FEATURE_BLOCKS = {
     "solid_angle": ["Total_Omega", "Global_Cos_Theta", "Window_Sky_Weighted_Omega",
@@ -106,7 +98,7 @@ def split_params(params):
 
 def make_model(params, early_stop=True):
     p = dict(params)
-    p.update(n_estimators=N_ESTIMATORS_MAX, random_state=SEED,
+    p.update(n_estimators=N_ESTIMATORS_MAX, random_state=MODEL_SEED,
              n_jobs=-1, verbosity=1, tree_method="hist")
     if early_stop:
         p["early_stopping_rounds"] = EARLY_STOPPING_ROUNDS
@@ -129,6 +121,20 @@ def predict_useful(m_low, m_up, X):
     p_low = np.clip(m_low.predict(X), 0.0, 100.0)
     p_up = np.clip(m_up.predict(X), 0.0, 100.0)
     return p_low, p_up, np.clip(100.0 - p_low - p_up, 0.0, 100.0)
+
+class _UsefulAsLow:
+    """Direct UDI_useful model wrapped so predict_useful() returns its prediction unchanged:
+    'low' = 100 - useful and 'up' = 0, hence 100 - low - up = useful."""
+    def __init__(self, model):
+        self.model = model
+        self.best_iteration = getattr(model, "best_iteration", -1)
+    def predict(self, X):
+        return 100.0 - np.clip(self.model.predict(X), 0.0, 100.0)
+
+class _Zero:
+    best_iteration = -1
+    def predict(self, X):
+        return np.zeros(len(X), dtype="float32")
 
 def score_block(actual, pred):
     err = np.abs(actual - pred)
@@ -175,12 +181,27 @@ def train_and_eval(name, df_tr, df_te, features, params, seed=SEED):
         df_tr["Group_ID"], VAL_FRACTION, seed)
 
     t0 = time.perf_counter()
-    m_low, m_up = fit_pair(X_tr, ylo_tr, yup_tr, X_va, ylo_va, yup_va, params)
+    if TARGET == "useful":
+        # one model on UDI_useful, with the UDI_low hyperparameters
+        p_use, _ = split_params(params)
+        m = make_model(p_use)
+        y_tr = np.clip(100.0 - ylo_tr - yup_tr, 0.0, 100.0)
+        y_va = np.clip(100.0 - ylo_va - yup_va, 0.0, 100.0)
+        log("Training direct UDI_useful regressor...")
+        m.fit(X_tr, y_tr, eval_set=[(X_va, y_va)], verbose=100)
+        m_low, m_up = _UsefulAsLow(m), _Zero()
+    else:
+        m_low, m_up = fit_pair(X_tr, ylo_tr, yup_tr, X_va, ylo_va, yup_va, params)
     train_s = time.perf_counter() - t0
 
     res = evaluate(name, m_low, m_up, Xte,
                    df_te["Target_UDI_low"].values, df_te["Target_UDI_up"].values,
                    df_te["Group_ID"].values)
+    if TARGET == "useful":   # component scores are meaningless for a direct model
+        for k in list(res):
+            if k.startswith(("low_", "up_")):
+                res[k] = float("nan")
+        res["target"] = "useful"
     res.update({
         "n_features": len(features),
         "n_train_rooms": int(df_tr["Group_ID"].nunique()),
@@ -195,10 +216,41 @@ def train_and_eval(name, df_tr, df_te, features, params, seed=SEED):
 # MAIN
 # =============================================================================
 def main():
+    global OUT_DIR, MODEL_LOW_PATH, FS_E2_WEIGHT, MODEL_SEED, TARGET
     parser = argparse.ArgumentParser(description="OmegaFlux Model Training")
     parser.add_argument("--mode", type=str, default="fast", choices=["fast", "full"], help="Training mode")
     parser.add_argument("--force", action="store_true", help="Force re-training models even if they already exist")
+    parser.add_argument("--features", choices=sorted(FEATURE_SETS), default="core",
+                        help="descriptor set: 'core' (12, default) or 'all' (26)")
+    parser.add_argument("--extra", nargs="*", default=[],
+                        help="additional pooled-CSV columns to use as features, e.g. Meta_L_char")
+    parser.add_argument("--fs-e2-weight", type=float, default=FS_E2_WEIGHT,
+                        help="weight of L-shape transfer in the forward-selection objective (0 = in-distribution only)")
+    parser.add_argument("--out", default=None, help="output folder (default OmegaFlux_Models/<features>)")
+    parser.add_argument("--steps", default=None,
+                        help=f"comma-separated experiments to run, overriding --mode: {','.join(ALL_STEPS)} (or 'none')")
+    parser.add_argument("--params-from", default=None,
+                        help="folder with hyperparameters.json from an earlier tuned run; skips re-tuning")
+    parser.add_argument("--feature-list", default=None,
+                        help="comma-separated descriptor names; overrides --features (requires --out)")
+    parser.add_argument("--topology", default="E2,E2c,E3,E4",
+                        help="which zero-shot tests the 'topology' step runs, e.g. E2")
+    parser.add_argument("--skip-main", action="store_true",
+                        help="do not train the E1 main model (for experiment-only runs)")
+    parser.add_argument("--model-seed", type=int, default=MODEL_SEED,
+                        help="seed for model fitting only; test sets stay fixed (use to measure run-to-run variance)")
+    parser.add_argument("--target", choices=["components", "useful"], default="components",
+                        help="'useful' trains one model on UDI_useful directly (ablation; needs --out and --params-from)")
     args = parser.parse_args()
+    TARGET = args.target
+    if TARGET == "useful" and not (args.out and args.params_from):
+        raise SystemExit("--target useful requires --out and --params-from (it reuses the UDI_low hyperparameters)")
+    if args.feature_list and not args.out:
+        raise SystemExit("--feature-list requires --out")
+    OUT_DIR = args.out or os.path.join("OmegaFlux_Models", args.features + ("_" + "_".join(args.extra) if args.extra else ""))
+    MODEL_LOW_PATH = os.path.join(OUT_DIR, "omegaflux_xgb_low.joblib")
+    FS_E2_WEIGHT = args.fs_e2_weight
+    MODEL_SEED = args.model_seed
 
     print("=" * 78)
     print(f"OmegaFlux - Stage 2: training and evaluation (Mode: {args.mode.upper()})")
@@ -211,18 +263,27 @@ def main():
         return
 
     is_full = (args.mode == "full")
-
-    # In fast mode, run ONLY the E1 main model. In full mode, run all experiments.
-    RUN_TUNING = is_full
-    RUN_CROSSVAL = is_full
-    RUN_SIZE_SWEEP = is_full
-    RUN_FEATURE_SELECTION = is_full
-    RUN_TOPOLOGY_TESTS = is_full
-    RUN_BASELINES = is_full
-    RUN_SHAP = is_full
-    RUN_FIGURES = is_full
-    
-    RUN_MAIN = True
+    # fast: E1 main model only. full: every experiment. --steps overrides both.
+    if args.steps is not None:
+        steps = set() if args.steps.strip().lower() == "none" else {x.strip() for x in args.steps.split(",")}
+        unknown = steps - set(ALL_STEPS)
+        if unknown:
+            raise SystemExit(f"unknown --steps {sorted(unknown)}; choose from {ALL_STEPS}")
+    else:
+        steps = set(ALL_STEPS) if is_full else set()
+    if args.params_from:
+        steps.discard("tune")
+    RUN_TUNING = "tune" in steps
+    RUN_CROSSVAL = "cv" in steps
+    RUN_SIZE_SWEEP = "size" in steps
+    RUN_FEATURE_SELECTION = "fs" in steps
+    RUN_TOPOLOGY_TESTS = "topology" in steps
+    RUN_BASELINES = "baselines" in steps
+    RUN_SHAP = "shap" in steps
+    RUN_FIGURES = "figures" in steps
+    RUN_MAIN = not args.skip_main
+    TOPO = {t.strip() for t in args.topology.split(",")}
+    log(f"Feature set: {'custom list' if args.feature_list else args.features}{' + ' + ', '.join(args.extra) if args.extra else ''} | steps: {sorted(steps) or ['E1 only']} | out: {OUT_DIR}")
 
     rng = np.random.default_rng(SEED)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -242,7 +303,14 @@ def main():
         log(f"[ERROR] missing columns: {missing}")
         return
 
-    features = [f for f in FEATURES if f in df.columns]
+    base = [f.strip() for f in args.feature_list.split(",")] if args.feature_list else list(FEATURE_SETS[args.features])
+    if args.feature_list:
+        args.features = "custom"
+    absent = [f for f in base + args.extra if f not in df.columns]
+    if absent:
+        log(f"[ERROR] columns not in pooled CSV: {absent}")
+        return
+    features = base + [f for f in args.extra if f not in base]
     log(f"\nUsing {len(features)} independent features")
 
     banner("DATASET OVERVIEW")
@@ -265,7 +333,7 @@ def main():
     log(f"Test : {len(df_test):,} records / {df_test['Group_ID'].nunique():,} rooms")
 
     tune_lshape_groups = set()
-    if TUNE_OBJECTIVE == "topology" and RUN_TUNING:
+    if TUNE_OBJECTIVE == "topology":   # always reserved, so E2 and selection results are comparable across runs
         ls = np.array(sorted(df_train.loc[df_train["Source_Tag"] == "randomized", "Group_ID"].unique()))
         if len(ls):
             k = max(1, int(round(len(ls) * TUNE_HOLDOUT_LSHAPE_FRACTION)))
@@ -274,6 +342,10 @@ def main():
 
     results = []
     params = dict(DEFAULT_PARAMS)
+    if args.params_from:
+        with open(os.path.join(args.params_from, "hyperparameters.json")) as fh:
+            params = json.load(fh)["selected"]
+        log(f"Hyperparameters loaded from {args.params_from}/hyperparameters.json")
 
     # --- Hyperparameter Search ---
     if RUN_TUNING:
@@ -331,17 +403,29 @@ def main():
         log(f"low    : R2 {res['low_R2']:.4f} | RMSE {res['low_RMSE']:.2f}%")
         log(f"up     : R2 {res['up_R2']:.4f} | RMSE {res['up_RMSE']:.2f}%")
 
-        joblib.dump(m_low, f"{OUT_DIR}/omegaflux_xgb_low.joblib")
-        joblib.dump(m_up, f"{OUT_DIR}/omegaflux_xgb_up.joblib")
-        m_low.save_model(f"{OUT_DIR}/omegaflux_xgb_low.json")
-        m_up.save_model(f"{OUT_DIR}/omegaflux_xgb_up.json")
+        if TARGET == "useful":
+            m_low.model.save_model(f"{OUT_DIR}/omegaflux_xgb_useful.json")
+            with open(f"{OUT_DIR}/features.json", "w") as fh:
+                json.dump({"feature_set": args.features, "features": features, "target": "useful",
+                           "changes": {k: v for k, v in FEATURE_CHANGES.items() if k in features}}, fh, indent=2)
+            mb = os.path.getsize(f"{OUT_DIR}/omegaflux_xgb_useful.json") / 1024 ** 2
+            log(f"\nModel size: {mb:.1f} MB (direct UDI_useful)")
+            res["model_mb_useful"] = round(mb, 2)
+        else:
+            joblib.dump(m_low, f"{OUT_DIR}/omegaflux_xgb_low.joblib")
+            joblib.dump(m_up, f"{OUT_DIR}/omegaflux_xgb_up.joblib")
+            m_low.save_model(f"{OUT_DIR}/omegaflux_xgb_low.json")
+            m_up.save_model(f"{OUT_DIR}/omegaflux_xgb_up.json")
+            with open(f"{OUT_DIR}/features.json", "w") as fh:
+                json.dump({"feature_set": args.features, "features": features,
+                           "changes": {k: v for k, v in FEATURE_CHANGES.items() if k in features}}, fh, indent=2)
 
-        mb_low = os.path.getsize(f"{OUT_DIR}/omegaflux_xgb_low.json") / 1024 ** 2
-        mb_up = os.path.getsize(f"{OUT_DIR}/omegaflux_xgb_up.json") / 1024 ** 2
-        log(f"\nModel size: low {mb_low:.1f} MB, up {mb_up:.1f} MB, combined {mb_low + mb_up:.1f} MB")
-        
-        res["model_mb_low"] = round(mb_low, 2)
-        res["model_mb_up"] = round(mb_up, 2)
+            mb_low = os.path.getsize(f"{OUT_DIR}/omegaflux_xgb_low.json") / 1024 ** 2
+            mb_up = os.path.getsize(f"{OUT_DIR}/omegaflux_xgb_up.json") / 1024 ** 2
+            log(f"\nModel size: low {mb_low:.1f} MB, up {mb_up:.1f} MB, combined {mb_low + mb_up:.1f} MB")
+
+            res["model_mb_low"] = round(mb_low, 2)
+            res["model_mb_up"] = round(mb_up, 2)
 
         log("\nBreakdown by geometry class (held-out rooms):")
         Xte = df_test[features].astype("float32")
@@ -383,17 +467,20 @@ def main():
             experiments.append(("E3_holdout_rotated", ["rect", "randomized"], ["rect_rotated"], "train axis-aligned -> predict rotated"))
 
         for name, tr_tags, te_tags, desc in experiments:
+            if name.split("_")[0] not in TOPO:
+                continue
             d_tr = df[df["Source_Tag"].isin(tr_tags)]
             d_te = df[df["Source_Tag"].isin(te_tags)]
             if name.startswith("E2") and tune_lshape_groups:
                 d_te = d_te[~d_te["Group_ID"].isin(tune_lshape_groups)]
             if len(d_tr) == 0 or len(d_te) == 0:
                 continue
-            r, _, _ = train_and_eval(name, d_tr, d_te, features, params)
+            r, _, _ = train_and_eval(name, d_tr, d_te, features, params, seed=MODEL_SEED)
+            r["model_seed"] = MODEL_SEED
             results.append(r)
             log(f"{name}  ({desc}) -> R2 {r['useful_R2']:.4f} | RMSE {r['useful_RMSE']:.2f}%")
 
-        if {"Meta_BBox_W", "Meta_Room_Height"} <= set(df.columns):
+        if "E2c" in TOPO and {"Meta_BBox_W", "Meta_Room_Height"} <= set(df.columns):
             H = df["Meta_Room_Height"]
             tmp = df.assign(_wh=(df["Global_Sill_Clearance"] + df["Global_Header_Clearance"]) * H, _sill=0.8 - df["Global_Sill_Clearance"] * H)
             room = tmp.groupby("Group_ID").agg(tag=("Source_Tag", "first"), w=("Meta_BBox_W", "first"), d=("Meta_BBox_D", "first"), wh=("_wh", "median"), sill=("_sill", "median"))
@@ -406,7 +493,7 @@ def main():
                 results.append(r)
                 log(f"E2c_controlled_envelope -> R2 {r['useful_R2']:.4f} | RMSE {r['useful_RMSE']:.2f}%")
 
-        if "Meta_N_Windows" in df.columns:
+        if "E4" in TOPO and "Meta_N_Windows" in df.columns:
             lo_n = df[df["Meta_N_Windows"] <= 2]
             hi_n = df[df["Meta_N_Windows"] >= 3]
             if len(lo_n) > 0 and len(hi_n) > 0:
@@ -453,7 +540,7 @@ def main():
             Xtr_all, np.clip(100 - df_train["Target_UDI_low"] - df_train["Target_UDI_up"], 0, 100),
             df_train["Target_UDI_up"], df_train["Group_ID"], VAL_FRACTION, SEED)
         
-        m_direct = make_model(params)
+        m_direct = make_model(split_params(params)[0])   # UDI_low hyperparameters, as in --target useful
         m_direct.fit(X_tr, ylo, eval_set=[(X_va, ylo_va)], verbose=False)
         p_direct = np.clip(m_direct.predict(df_test[features].astype("float32")), 0, 100)
         s = score_block(a_use, p_direct)
@@ -622,7 +709,7 @@ def main():
         plt.savefig(f"{OUT_DIR}/error_distribution.png", dpi=300); plt.close()
 
         plt.figure(figsize=(7, 5))
-        hb2 = plt.hexbin(Xte["Mean_Window_Distance"], np.abs(err), gridsize=40, cmap="viridis", mincnt=1, bins="log")
+        hb2 = plt.hexbin(df_test["Mean_Window_Distance"].values, np.abs(err), gridsize=40, cmap="viridis", mincnt=1, bins="log")
         plt.colorbar(hb2, label="Sensors (log)")
         plt.xlabel("Mean window distance / $L_{char}$ (dimensionless)")
         plt.ylabel("Absolute error (percentage points)")
@@ -630,9 +717,9 @@ def main():
         plt.grid(alpha=.3); plt.tight_layout()
         plt.savefig(f"{OUT_DIR}/error_vs_depth.png", dpi=300); plt.close()
 
-        if "Inner_Corner_Dmin" in Xte.columns:
+        if "Inner_Corner_Dmin" in df_test.columns:
             plt.figure(figsize=(7, 5))
-            hb3 = plt.hexbin(Xte["Inner_Corner_Dmin"], np.abs(err), gridsize=40, cmap="magma", mincnt=1, bins="log")
+            hb3 = plt.hexbin(df_test["Inner_Corner_Dmin"].values, np.abs(err), gridsize=40, cmap="magma", mincnt=1, bins="log")
             plt.colorbar(hb3, label="Sensors (log)")
             plt.xlabel("Distance to nearest re-entrant corner / $L_{char}$")
             plt.ylabel("Absolute error (percentage points)")
@@ -640,12 +727,18 @@ def main():
             plt.grid(alpha=.3); plt.tight_layout()
             plt.savefig(f"{OUT_DIR}/error_vs_inner_corner.png", dpi=300); plt.close()
 
+    if not os.path.exists(f"{OUT_DIR}/hyperparameters.json"):
+        with open(f"{OUT_DIR}/hyperparameters.json", "w") as fh:
+            json.dump({"objective": TUNE_OBJECTIVE, "selected": params,
+                       "source": args.params_from or ("tuned" if RUN_TUNING else "DEFAULT_PARAMS")}, fh, indent=2)
     res_df = pd.DataFrame(results)
     res_df.to_csv(f"{OUT_DIR}/results_table.csv", index=False)
     
     with open(f"{OUT_DIR}/manifest_training.json", "w") as fh:
         json.dump({
             "seed": SEED, "n_features": len(features), "features": features,
+            "feature_set": args.features, "fs_e2_weight": FS_E2_WEIGHT, "steps": sorted(steps),
+            "model_seed": MODEL_SEED, "target": TARGET,
             "params": params, "benchmark": bench,
             "test_fraction": TEST_FRACTION, "val_fraction": VAL_FRACTION,
             "early_stopping_rounds": EARLY_STOPPING_ROUNDS,

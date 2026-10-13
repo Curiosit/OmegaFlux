@@ -1,0 +1,24 @@
+{
+  "title": "OmegaFlux: daylight prediction from per-sensor geometric descriptors (v1.1.0)",
+  "upload_type": "software",
+  "description": "<p>Code, simulation data and trained-model tooling accompanying the article <em>Daylight prediction from per-sensor geometric descriptors: descriptor selection for transfer to unseen room shapes</em> (submitted to the Journal of Building Engineering).</p><p>A per-sensor surrogate for annual Useful Daylight Illuminance (UDI, 100–3000 lux). Each grid point is described by geometric descriptors of its view through the windows and of its position in the room; 12 of 26 candidates were selected by forward selection. Two XGBoost models predict the under- and over-illuminated fractions. The deposit contains 6,749 Radiance-simulated rooms (3,266,627 grid points, Warsaw climate), the feature extraction and training pipeline, the experiments on held-out rooms (E1), transfer from rectangular to L-shaped rooms (E2), rotation (E3) and window count (E4), baselines, a Radiance convergence check, the paper figures, a browser application and a Grasshopper (Hops) service.</p><p>Code: MIT. Data, figures and documentation: CC BY 4.0.</p>",
+  "creators": [
+    {
+      "name": "Płoszaj-Mazurek, Mateusz",
+      "affiliation": "Faculty of Architecture, Warsaw University of Technology",
+      "orcid": "0000-0002-4618-7849"
+    }
+  ],
+  "keywords": [
+    "daylight prediction",
+    "surrogate model",
+    "gradient boosting",
+    "solid angle",
+    "useful daylight illuminance",
+    "climate-based daylight modelling",
+    "transfer to unseen geometry"
+  ],
+  "license": "MIT",
+  "version": "1.1.0",
+  "language": "eng"
+}

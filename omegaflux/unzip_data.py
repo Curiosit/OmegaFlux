@@ -5,9 +5,9 @@ import glob
 
 DATA_RAW_DIR = os.path.join("data", "raw")
 TARGET_FILES = [
-    os.path.join("data", "study-ml-rect.xlsx"),
-    os.path.join("data", "study-ml-rotated.xlsx"),
-    os.path.join("data", "study-ml-shapes.csv"),
+    os.path.join(DATA_RAW_DIR, "study-ml-rect.xlsx"),
+    os.path.join(DATA_RAW_DIR, "study-ml-rotated.xlsx"),
+    os.path.join(DATA_RAW_DIR, "study-ml-shapes.csv"),
 ]
 
 def main():
@@ -21,7 +21,7 @@ def main():
     
     # Skip if all extracted files already exist and --force was NOT provided
     if not args.force and all(os.path.exists(f) for f in TARGET_FILES):
-        print("[INFO] All raw simulation files already exist in 'data/'.")
+        print("[INFO] All raw simulation files already exist in 'data/raw/'.")
         print("[SKIP] Skipping extraction. (Use --force to re-extract)")
         return
 

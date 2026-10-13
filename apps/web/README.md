@@ -87,7 +87,7 @@ Open your browser at http://localhost:5173
 ## Architecture & Inference Engine
 
 1. **Feature Extraction (`src/engine.ts`):** 
-   Whenever the user updates room topology or window sliders, the application samples the floor plate at `0.25 m` intervals. For each coordinate $(x, y)$, `extractFeatures()` constructs 3D aperture geometries and analytically evaluates the 26 independent radiometric feature descriptors matching the core `omegaflux` Python extractor.
+   Whenever the user updates room topology or window sliders, the application samples the floor plate at `0.25 m` intervals. For each coordinate $(x, y)$, `extractFeatures()` constructs 3D aperture geometries and evaluates the 26 candidate descriptors exactly as the `omegaflux` Python extractor does, and passes the ones listed in `public/models/features.json` (12 for v1.1.0 models) to the model.
 
 2. **Batch Inference (`src/components/Room.tsx`):**
    The extracted feature array for all grid points $[N \times 26]$ is flattened into a single `Float32Array` and wrapped inside an `onnxruntime-web` tensor.

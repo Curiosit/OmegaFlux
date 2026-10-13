@@ -94,6 +94,19 @@ function generateAnnualSunVectors(latitudeDeg = 52.17): number[][] {
 const SUN_VECTORS = generateAnnualSunVectors(52.17);
 
 
+// Names of the 26 values returned by extractFeatures, in order. Must match
+// omegaflux/features.py FEATURES_ALL; models select their inputs from this list by name.
+export const FEATURE_NAMES = [
+  'Total_Omega', 'Global_Cos_Theta', 'Global_Sill_Clearance', 'Global_Header_Clearance',
+  'Global_inv_dmin2', 'Opaque_Wall_dmin', 'Inner_Corner_Dmin', 'Outer_Corner_Dmin',
+  'South_Weighted_Omega', 'East_Weighted_Omega', 'West_Weighted_Omega',
+  'Annual_Direct_Sun_Fraction', 'Smooth_Mean_Depth', 'Smooth_Depth_StdDev',
+  'Min_Occluder_Distance', 'Window_Angular_Spread', 'Window_Sky_Weighted_Omega',
+  'Occlusion_Multiplier', 'Visible_Window_Count', 'Mean_Window_Distance',
+  'Dominant_Win_Plane_Dist', 'Dominant_Win_H_Offset', 'Dominant_Win_Ray_Forward',
+  'Dominant_Win_Ray_Backward', 'Dominant_Win_Ray_Left', 'Dominant_Win_Ray_Right',
+] as const;
+
 export const extractFeatures = (
   sx: number,
   sy: number,
@@ -336,7 +349,7 @@ export const extractFeatures = (
   const features = [
     clip(totalOmega / TWO_PI),                                                  // 0: Total_Omega
     clip(cosTheta),                                                             // 1: Global_Cos_Theta
-    clip(wSum > 0 ? clearanceData.reduce((acc, c) => acc + c.sill * c.weight, 0) / wSum / roomHeight : 0.0),   // 2: Global_Sill_Clearance
+    Math.max(-1.0, Math.min(1.0, wSum > 0 ? clearanceData.reduce((acc, c) => acc + c.sill * c.weight, 0) / wSum / roomHeight : 0.0)),   // 2: Global_Sill_Clearance (signed since v1.1.0)
     clip(wSum > 0 ? clearanceData.reduce((acc, c) => acc + c.header * c.weight, 0) / wSum / roomHeight : 0.0), // 3: Global_Header_Clearance
     (dminSqList.length > 0 ? 1.0 / Math.max(Math.min(...dminSqList), 1e-4) : 0.0) * Math.pow(lChar, 2),        // 4: Global_inv_dmin2
     clip(Math.max(0.05, minOpaque) / lChar),                                    // 5: Opaque_Wall_dmin

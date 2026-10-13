@@ -2,7 +2,7 @@ import argparse
 import subprocess
 import sys
 
-def run_pipeline(mode, force):
+def run_pipeline(mode, force, features="core", out=None):
     print("=== Starting OmegaFlux Pipeline ===")
     py = sys.executable
     
@@ -15,7 +15,8 @@ def run_pipeline(mode, force):
     if force:
         extract_cmd.append("--force")
         
-    train_cmd = [py, "-m", "omegaflux.train", "--mode", mode]
+    out = out or f"OmegaFlux_Models/{features}"
+    train_cmd = [py, "-m", "omegaflux.train", "--mode", mode, "--features", features, "--out", out]
     if force:
         train_cmd.append("--force")
     
@@ -23,9 +24,9 @@ def run_pipeline(mode, force):
         ("Unzip Raw Data", unzip_cmd),
         ("Feature Extraction", extract_cmd),
         ("Model Training", train_cmd),
-        ("TreeSHAP Attribution", [py, "-m", "omegaflux.explain"]),
-        ("Figure Generation", [py, "-m", "omegaflux.make_figures"]),
-        ("ONNX Model Export", [py, "-m", "omegaflux.export_onnx"])
+        ("TreeSHAP Attribution", [py, "-m", "omegaflux.explain", "--out", out]),
+        ("Paper Figures", [py, "-m", "omegaflux.make_paper_figures"]),   # skips figures whose runs are missing
+        ("ONNX Model Export", [py, "-m", "omegaflux.export_onnx", "--out", out])
     ]
     
     for step_name, command in steps:
@@ -43,6 +44,9 @@ if __name__ == "__main__":
                         help="Run mode for training: 'fast' (no tuning) or 'full'")
     parser.add_argument("--force", action="store_true", 
                         help="Force re-running unzip, extraction, and training even if output artifacts already exist")
+    parser.add_argument("--features", default="core", choices=["core", "all"],
+                        help="descriptor set: 'core' (12, default) or 'all' (26)")
+    parser.add_argument("--out", default=None, help="model folder (default OmegaFlux_Models/<features>)")
     args = parser.parse_args()
-    
-    run_pipeline(args.mode, args.force)
+
+    run_pipeline(args.mode, args.force, args.features, args.out)

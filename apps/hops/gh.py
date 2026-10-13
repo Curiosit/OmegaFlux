@@ -13,7 +13,7 @@ hops: hs.HopsFlask = hs.Hops(app)
 TWO_PI = 2.0 * math.pi
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-MODEL_DIR = os.getenv("OMEGAFLUX_MODEL_DIR", os.path.join(BASE_DIR, "OmegaFlux_Models"))
+MODEL_DIR = os.getenv("OMEGAFLUX_MODEL_DIR", os.path.join(BASE_DIR, "OmegaFlux_Models", "core"))
 
 model_low_path = os.path.join(MODEL_DIR, "omegaflux_xgb_low.joblib")
 model_up_path = os.path.join(MODEL_DIR, "omegaflux_xgb_up.joblib")
@@ -24,6 +24,26 @@ if not os.path.exists(model_low_path):
 
 model_low = joblib.load(model_low_path)
 model_up = joblib.load(model_up_path)
+
+# The 26 descriptors computed below, in order (= omegaflux/features.py FEATURES_ALL).
+FEATURE_NAMES = [
+    "Total_Omega", "Global_Cos_Theta", "Global_Sill_Clearance", "Global_Header_Clearance",
+    "Global_inv_dmin2", "Opaque_Wall_dmin", "Inner_Corner_Dmin", "Outer_Corner_Dmin",
+    "South_Weighted_Omega", "East_Weighted_Omega", "West_Weighted_Omega",
+    "Annual_Direct_Sun_Fraction", "Smooth_Mean_Depth", "Smooth_Depth_StdDev",
+    "Min_Occluder_Distance", "Window_Angular_Spread", "Window_Sky_Weighted_Omega",
+    "Occlusion_Multiplier", "Visible_Window_Count", "Mean_Window_Distance",
+    "Dominant_Win_Plane_Dist", "Dominant_Win_H_Offset", "Dominant_Win_Ray_Forward",
+    "Dominant_Win_Ray_Backward", "Dominant_Win_Ray_Left", "Dominant_Win_Ray_Right",
+]
+_features_json = os.path.join(os.path.dirname(model_low_path), "features.json")
+if os.path.exists(_features_json):
+    import json
+    with open(_features_json) as _fh:
+        MODEL_FEATURES = json.load(_fh)["features"]
+else:                                  # v1.0.0 models: all 26
+    MODEL_FEATURES = list(FEATURE_NAMES)
+MODEL_FEATURE_IDX = [FEATURE_NAMES.index(f) for f in MODEL_FEATURES]
 
 
 def smoothstep(edge0, edge1, x):
@@ -298,9 +318,9 @@ total_rays_count = len(south_solar_rays)
 
 @hops.component(
     "/omegaflux_predict",
-    name="OmegaFlux Predict (26-Feature ML)",
+    name="OmegaFlux Predict",
     nickname="OmegaFlux",
-    description="Predicts UDI metrics using 26 Normalized ML Features",
+    description="Predicts per-sensor UDI with the OmegaFlux descriptor model in MODEL_DIR",
     inputs=[
         hs.HopsPoint("Points", "Pts", "Sensor grid points", access=hs.HopsParamAccess.LIST),
         hs.HopsPoint("Room Corners", "RoomPts", "Corner points of room perimeter", access=hs.HopsParamAccess.LIST),
@@ -517,7 +537,7 @@ def omegaflux_predict(points, room_corners, window_corners, simulated_udi=None):
             features = [
                 float(np.clip(total_omega / TWO_PI, 0.0, 1.0)),
                 float(np.clip(global_cos_theta, 0.0, 1.0)),
-                float(np.clip(global_sill_clearance / room_height, 0.0, 1.0)),
+                float(np.clip(global_sill_clearance / room_height, -1.0, 1.0)),   # signed since v1.1.0
                 float(np.clip(global_header_clearance / room_height, 0.0, 1.0)),
                 float(raw_inv_dmin2 * (l_char ** 2)),
                 float(np.clip(opaque_wall_dmin / l_char, 0.0, 1.0)),
@@ -543,7 +563,7 @@ def omegaflux_predict(points, room_corners, window_corners, simulated_udi=None):
                 float(np.clip(dom_ray_right / l_char, 0.0, 1.0))
             ]
             
-            X_input = np.array([features], dtype=np.float32)
+            X_input = np.array([[features[i] for i in MODEL_FEATURE_IDX]], dtype=np.float32)
             low = max(0.0, min(100.0, float(model_low.predict(X_input)[0])))
             up = max(0.0, min(100.0, float(model_up.predict(X_input)[0])))
             useful = max(0.0, min(100.0, 100.0 - low - up))

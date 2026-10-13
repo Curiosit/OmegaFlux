@@ -4,12 +4,10 @@
 
 # OmegaFlux
 
-**Analytic radiometric descriptors enable geometry-flexible per-sensor daylight prediction without learned spatial encodings**
-
-***Tabular Data is All You Need***
+**Daylight prediction from per-sensor geometric descriptors: descriptor selection for transfer to unseen room shapes**
 
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://curiosit.github.io/OmegaFlux/)
-[![Paper](https://img.shields.io/badge/paper-pending-lightgrey)](#citation)
+[![Paper](https://img.shields.io/badge/paper-submitted%20(J.%20Build.%20Eng.)-lightgrey)](#citation)
 [![DOI](https://zenodo.org/badge/1300499774.svg)](https://doi.org/10.5281/zenodo.21781259)
 [![Code licence: MIT](https://img.shields.io/badge/code-MIT-green)](LICENSE)
 [![Data licence: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-green)](LICENSE-DATA)
@@ -19,139 +17,138 @@
 
 ---
 
-A per-sensor surrogate model for annual **Useful Daylight Illuminance**. Each grid point on a floor
-plate is described by 26 dimensionless radiometric quantities computed in closed form from the
-geometry visible at that point — principally the solid angle subtended by visible apertures,
-weighted by the sky each admits. Because the descriptor count does not depend on how many apertures
-a room has or where they sit, a fixed-width tabular model can be applied to a variable-topology
-geometric problem, which is the representational obstacle that has pushed comparable work toward
-convolutional and generative architectures.
+A per-sensor surrogate model for annual **Useful Daylight Illuminance** (UDI, 100–3000 lux). Each
+grid point is described by geometric descriptors of what it sees through the windows and of where it
+is in the room. Contributions of all windows are summed or weighted, so the number of inputs does not
+depend on how many windows a room has. Twelve descriptors were selected from 26 candidates; two
+gradient-boosted tree models (XGBoost) predict the under- and over-illuminated fractions, and
+UDI_useful = 100 − UDI_low − UDI_up.
 
-The model is a pair of gradient-boosted tree ensembles. **There is no neural network at any stage.**
+The repository accompanies the article above and contains the simulation data, the full pipeline,
+every experiment reported in the paper, the paper figures, a browser application and a Grasshopper
+service.
 
-| | |
-|---|---|
-| Training population | 6,749 rooms, 3,266,627 grid points |
-| Ground truth | Radiance annual CBDM via Honeybee, Warsaw (52.17° N) |
-| Accuracy, unseen rooms | R² = 0.986, RMSE 2.15 pp of annual occupied hours |
-| Unseen aperture count | R² = 0.977 |
-| Unseen plan orientation | R² = 0.966 |
-| Unseen plan topology | R² = 0.716 (26 descriptors) / 0.869 (12 descriptors) |
-| Speed | 0.48 ms per grid point, ~200× a 45 s Radiance run |
+| | 12 descriptors | 26 descriptors |
+|---|---|---|
+| Held-out rooms (E1), R² / RMSE | 0.976 / 2.86 pp | 0.986 / 2.17 pp |
+| Rectangular → L-shaped rooms (E2), R² | **0.856 ± 0.001** | 0.778 ± 0.035 |
+| Unrotated → rotated rooms (E3), R² | 0.952 | 0.968 |
+| 1–2 → 3–4 windows (E4), R² | 0.965 | 0.977 |
 
+E2 values are means ± SD over three model seeds. A model on window coordinates reaches R² = −0.05 in
+E2. Room rankings are preserved (Spearman ρ of room means 0.99 on held-out rooms, 0.97 on unseen
+L-shaped rooms). Extracting descriptors takes about 0.4 ms per grid point and prediction about
+0.02 ms, so a room is predicted in well under a second, about 200 times faster than the 45 s
+Radiance run.
 
-![docs/fig11.png](docs/fig11.png)
-<em>Unseen topology: Radiance CBDM (left) and OmegaFlux prediction (right), UDI-useful, 0.25 m grid.</em>
+![figures/paper/fig_room_examples.png](figures/paper/fig_room_examples.png)
+<em>Simulated (top) and predicted (middle) UDI_useful, and the error (bottom), for four held-out rooms.</em>
 
-Prediction transfers to plan topologies absent from training. Below, Radiance ground
-truth (left) against OmegaFlux prediction (right) for a U-shaped room — a form the
-model never saw during fitting. Accuracy degrades on this transfer (R² = 0.716 on the
-full descriptor set, 0.869 on the reduced 12-descriptor set) but the spatial structure
-of the field is recovered.
+**Main finding.** Descriptors of the view through the windows, and of the point's position in the
+room, transfer from rectangular to L-shaped rooms. Distances to the nearest window and wall do not:
+in a rectangle the nearest window is always in view, so its distance is a good proxy for light, but in
+an L-shaped room it can be hidden behind the inner corner. Adding them improves accuracy within
+rectangles and lowers it on L-shapes.
+
+**Scope.** One climate (Warsaw, 52.17° N), fixed reflectances and glazing, room height 2.7 m, no
+external obstruction. On L-shaped rooms the model overestimates UDI_useful at points that see the
+windows through a small solid angle, so it is better suited to comparing variants than to absolute
+values in non-convex plans.
 
 ---
 
 ## What is in this repository
 
 ```text
-omegaflux/
+OmegaFlux/
 ├── data/
-│   ├── raw/                  simulation output, one file per stratum
-│   └── processed/            per-grid-point descriptor table (generated)
+│   ├── raw/                  simulation output, one zip per stratum (+ raw/convergence/)
+│   ├── processed/            per-grid-point descriptor table (generated, not committed)
+│   └── convergence_check/    Radiance convergence check (-ab 5 / 8 / 12), cleaned
+├── omegaflux/                the Python package (see omegaflux/README.md)
+├── figures/paper/            all figures of the article (see figures/paper/README.md)
 ├── apps/
-│   ├── web/                  browser application, ONNX runtime, no server
-│   ├── hops/                 Grasshopper server via Hops
+│   ├── web/                  browser application, ONNX Runtime Web, no server
+│   ├── hops/                 Grasshopper service via Hops
 │   └── grasshopper/          Grasshopper definitions
-├── OmegaFlux_Models/                   trained models (see Releases)
-├── omegaflux/
-│   ├── __init__.py
-│   ├── README.md             Module-level documentation
-│   ├── generate_doe.py       Generates LHS simulation matrices
-│   ├── unzip_data.py         Extracts raw simulation zip files
-│   ├── extract_features.py   Stage 1: raw -> per-grid-point table
-│   ├── train.py              Stage 2: table -> models + results
-│   ├── explain.py            TreeSHAP attribution
-│   ├── make_figures.py       Generate figures from artefacts
-│   ├── export_onnx.py        Export web-ready ONNX models
-│   └── fetch_models.py       Download pre-trained release models
-├── setup_env.py              Environment installer
-├── main.py                   Pipeline automation runner
-└── docs/                     additional information
+├── docs/REPRODUCE.md         which command produces which table and figure
+├── run_*.bat                 the experiment batches used for the article (Windows)
+├── main.py                   pipeline runner
+├── setup_env.py              environment installer
+└── test_predict.py           installation check
 ```
+
+Trained models are not committed; they are attached to the GitHub release (see [Models](#models)).
 
 ---
 
 ## Quick start
 
 ```bash
-git clone https://github.com/Curiosit/omegaflux.git
-cd omegaflux
+git clone https://github.com/Curiosit/OmegaFlux.git
+cd OmegaFlux
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate            # Windows; on Linux/macOS: source .venv/bin/activate
 pip install -e ".[dev]"
-```
-
-Verify your installation and local models by running the test script:
-
-```bash
+python -m omegaflux.fetch_models  # 12-descriptor models -> OmegaFlux_Models/core
 python test_predict.py
 ```
 
-Run the whole study in a fast mode
-```python
-python main.py --mode fast
-```
-
-Predict a floor plate from an existing model:
+Predict a floor plate:
 
 ```python
 from omegaflux import predict_room
 
-room    = [(0, 0), (5.0, 0), (5.0, 4.2), (0, 4.2)]      # plan, metres, CCW
+room    = [(0, 0), (5.0, 0), (5.0, 4.2), (0, 4.2)]      # plan, metres, counter-clockwise
 windows = [dict(wall=0, centre=2.5, width=1.8, sill=0.9, height=1.5)]
 
 field = predict_room(room, windows, grid=0.25)          # -> x, y, UDI_useful
 print(f"{field.mean():.1f}% of occupied hours, mean over {len(field)} points")
 ```
-# Reproduce the whole study from the deposited simulation output:
-```
-# Optional: Generate LHS sampling matrices
-python -m omegaflux.generate_doe
 
-# Core Pipeline
-python -m omegaflux.unzip_data           # Extracts data/raw zip files
-python -m omegaflux.extract_features     # raw  -> per-grid-point table  (~40 min)
-python -m omegaflux.train --mode fast    # table -> models + results     (~3 h) (use --mode full for hyperparameter tuning)
-python -m omegaflux.explain              # models -> TreeSHAP attribution
-python -m omegaflux.make_figures         # everything -> figures
+## Reproducing the study
 
-# Export Models
-python -m omegaflux.export_onnx          # json -> web ready onnx models
+```bash
+python -m omegaflux.unzip_data                            # data/raw/*.zip -> data/raw/
+python -m omegaflux.extract_features                      # -> data/processed/ (about 40 min)
+python -m omegaflux.train --mode full --features core     # 12 descriptors -> OmegaFlux_Models/core
+python -m omegaflux.train --mode full --features all      # 26 descriptors -> OmegaFlux_Models/all
+python -m omegaflux.make_paper_figures                    # -> figures/paper/
 ```
+
+`main.py --mode full` runs the same chain for one descriptor set. The seed repeats, selection
+paths, ablations, baselines, applicability check and convergence check are separate runs; the
+`run_*.bat` files list them, and [docs/REPRODUCE.md](docs/REPRODUCE.md) maps every table and figure
+of the article to the command that produces it.
+
+Training options: `--steps tune,cv,topology,baselines,fs,size,shap,figures` runs selected
+experiments; `--topology E2,E3,E4` chooses the transfer tests; `--params-from <folder>` reuses tuned
+hyperparameters; `--fs-e2-weight 0` scores forward selection on in-distribution accuracy only;
+`--feature-list a,b,c` trains on a custom descriptor list; `--model-seed N` changes only the model
+fitting (data splits stay fixed); `--target useful` trains one model directly on UDI_useful.
+
 ---
 
-## The four stages
+## Method in brief
 
-**1 · Ground truth.** 6,749 room configurations sampled by Latin Hypercube across six typological
-bins — four rectangular fenestration patterns, one rotated, one non-convex L-shaped — simulated in
-Radiance through Honeybee. Every room is free-standing: no external obstruction is modelled in any
-stratum, so the room's own re-entrant form is the sole source of sky occlusion.
+**Data.** 6,749 rooms sampled by Latin Hypercube in six bins: four rectangular window patterns on the
+south and east walls (A–D, 4–6 m), the same patterns rotated (E), and L-shaped rooms with one to three
+windows on any wall (F, 5–12 m). Annual simulation in Radiance 5.4 through Honeybee 1.10
+(daylight-coefficient method, Perez sky, `-ab 5 -ad 5000 -lw 2e-05`), reflectances 0.8 / 0.5 / 0.2,
+ground 0.1, glazing transmittance 0.64, occupied hours 8:00–18:00. Sensor grid 0.25 m at 0.8 m.
 
-**2 · Representation.** The room is discarded as the unit of analysis. Each grid point becomes one
-record described by 26 dimensionless quantities computed analytically from the geometry visible at
-that point. Absolute coordinates and bounding dimensions enter only as normalisers. The solid angle
-subtended by each aperture is evaluated in closed form by the Van Oosterom–Strackee formula, not by
-ray sampling — this is what makes extraction cheap enough to keep the model tabular.
+**Descriptors.** For each grid point and window: solid angle (Van Oosterom–Strackee, two triangles per
+window), a visibility weight from a plan sightline to the window centre, and a sky-visibility ratio for
+the window. These are combined into 26 window-count-independent candidates (solid angles, orientation,
+direct sun from 87 sun positions, distances and room-shape measures). The 12 kept are listed in
+`omegaflux/features.py` (`FEATURES_CORE`) and in Table 2 of the article.
 
-**3 · Learning.** Two XGBoost regressors predict the under- and over-illuminated fractions
-separately; the useful fraction follows by closure. Partitioning is by room geometry *before* any
-model fitting, so no grid point from a test room influences training — the spatial autocorrelation
-between adjacent points at 0.25 m spacing would otherwise inflate reported accuracy substantially.
+**Learning.** Two XGBoost models (UDI_low, UDI_up), depth 6, learning rate 0.15, other parameters by
+randomised search; early stopping on 10% of training rooms. All splits are by room, never by sensor.
 
-**4 · Deployment.** The trained pair requires no GPU, no server and no deep-learning runtime.
-Three paths are provided: a browser application, a Grasshopper server, and direct use inside an
-optimisation loop.
-
+**Selection.** Greedy forward selection up to 12 descriptors, scored as 0.6 × R² on 254 reserved
+L-shaped training rooms (model trained on rectangular rooms) + 0.4 × R² on 15% of the training rooms;
+a control path uses the second term only. The test rooms are not used for selection or tuning.
 
 ---
 
@@ -159,12 +156,10 @@ optimisation loop.
 
 ### Browser
 
-**[▶ Run it now — curiosit.github.io/OmegaFlux](https://curiosit.github.io/OmegaFlux/)**
+**[▶ curiosit.github.io/OmegaFlux](https://curiosit.github.io/OmegaFlux/)**
 
 Runs entirely client-side with ONNX Runtime Web. No installation, no server, no data leaves the
-machine. First load fetches ~21 MB of ONNX models; thereafter it is cached.
-
-To run locally:
+machine. To run locally:
 
 ```bash
 cd apps/web
@@ -176,62 +171,69 @@ npm run dev
 
 ### Grasshopper
 
-A local Hops server exposing the model to Grasshopper.
+A local Hops service exposing the model to Grasshopper:
 
 ```bash
 pip install -e ".[hops]"
-python apps/hops/hops_server.py           # then point a Hops component at http://localhost:5000
+python apps/hops/gh.py            # then point a Hops component at http://localhost:5000
 ```
 
-Definitions are in [apps/hops/](apps/hops/) and [apps/grasshopper/](apps/grasshopper/)
-
-![apps/hops/hops.png](apps/hops/hops.png)
+Definitions are in [apps/hops/](apps/hops/) and [apps/grasshopper/](apps/grasshopper/).
 
 ---
 
 ## Data
 
-Simulation output is deposited under `data/raw/`, one `zip` file per stratum:
-
-| File | Stratum | Rooms | Format |
+| File | Bins | Rooms | Format |
 |---|---|---|---|
-| `study-ml-rect.xlsx` | bins A-D, axis-aligned, 1–2 apertures per wall | 4,500 | one row per room |
-| `study-ml-rotated.xlsx` | bin E, as A–D at 90°, 180°, 270° | 1,124 | one row per room |
-| `study-ml-shapes.csv` | bin F, non-convex, 1–3 apertures on any wall | 1,125 | one row per room |
+| `data/raw/study-ml-rect.xlsx.zip` | A–D, rectangular | 4,500 | one row per room |
+| `data/raw/study-ml-rotated.xlsx.zip` | E, A–D rotated by 90°, 180°, 270° | 1,124 | one row per room |
+| `data/raw/study-ml-shapes.csv.zip` | F, L-shaped | 1,125 | one row per room |
 
-Each row carries the room geometry, aperture specification, the sensor grid and the annual results
-(`raw_UDI_low`, `raw_UDI_up`, and the sDA/ASE/DA aggregates). Bin F is CSV rather than XLSX because
-its sensor field exceeds the 32,767-character limit on a spreadsheet cell — see
-[data/README.md](data/README.md), which also documents the column schema and a coordinate-truncation
-issue that affected an earlier version of that file.
-
-The processed 3.27 M-row descriptor table is regenerated by `extract_features`. The file is roughly 1.5 GB and is **not** committed. 
+Each row holds the room geometry, the windows, the sensor grid and the annual results per grid point
+(`raw_UDI_low`, `raw_UDI_up`, plus DA, sDA and ASE). The column schema and the simulation settings are
+in [data/README.md](data/README.md). The processed 3.27-million-row descriptor table (about 1.5 GB) is
+regenerated by `extract_features` and is not committed.
 
 ---
 
 ## Models
 
-Trained models are attached to the [latest release](../../releases) rather than committed, since
-the pair exceeds GitHub's file-size guidance:
+Trained models are attached to the [GitHub release](../../releases) rather than committed:
 
-| File | Size | Use |
-|---|---|---|
-| `omegaflux_xgb_low.joblib` | 7 MB | under-illuminated fraction |
-| `omegaflux_xgb_up.joblib` | 18 MB | over-illuminated fraction |
-| `omegaflux_low.onnx`, `omegaflux_up.onnx` | 5 / 15 MB | browser deployment |
+| File | Use |
+|---|---|
+| `omegaflux_xgb_low.json` / `.joblib` | under-illuminated fraction (UDI_low) |
+| `omegaflux_xgb_up.json` / `.joblib` | over-illuminated fraction (UDI_up) |
+| `omegaflux_low.onnx`, `omegaflux_up.onnx` | browser deployment (copied to the web app as `OmegaFluxLow/Up.onnx` with `--web`) |
+| `features.json` | input descriptors, in order |
 
 ```bash
-# fetch into OmegaFlux_Models/
-python -m omegaflux.fetch_models
+python -m omegaflux.fetch_models                       # v1.1.0, 12 descriptors -> OmegaFlux_Models/core
+python -m omegaflux.fetch_models --web                 # also update the browser app
+python -m omegaflux.fetch_models --tag v1.0.0 --out OmegaFlux_Models/v1.0.0   # original 26-descriptor models
 ```
 
+Changes between releases are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ---
+
+## Citation
+
+If you use the code or data, please cite the archived release and, once published, the article.
+
+> Płoszaj-Mazurek, M. (2026). *OmegaFlux: daylight prediction from per-sensor geometric descriptors*
+> (v1.1.0) [Software and data]. Zenodo. https://doi.org/10.5281/zenodo.21781259
+
+> Płoszaj-Mazurek, M. *Daylight prediction from per-sensor geometric descriptors: descriptor
+> selection for transfer to unseen room shapes.* Submitted to Journal of Building Engineering.
+
+Citation metadata is in [CITATION.cff](CITATION.cff).
 
 ## Licence
 
 Code is MIT ([LICENSE](LICENSE)). Data, figures and documentation are CC BY 4.0
-([LICENSE-DATA](LICENSE-DATA)). Attribution is required for both.
+([LICENSE-DATA](LICENSE-DATA)).
 
 ## Acknowledgements
 

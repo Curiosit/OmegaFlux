@@ -1,0 +1,26 @@
+{
+  "common": {
+    "tool": "Ladybug Tools 1.10, HB Annual Daylight",
+    "method": "enhanced 2-phase (direct sun traced to hourly solar positions; 145-patch Tregenza sky for diffuse)",
+    "weather": "Warsaw Okecie EPW (same file as training data)",
+    "udi_thresholds_lux": [
+      100,
+      3000
+    ],
+    "schedule": "component default, 8:00-18:00 daily",
+    "sensor_grid": "0.25 m, 0.8 m above floor, identical to training data",
+    "materials": "component defaults, identical to training data"
+  },
+  "ab5": {
+    "radiance_par": "-ab 5 -ad 5000 -lw 2e-05",
+    "role": "original training labels"
+  },
+  "ab8": {
+    "radiance_par": "-ab 8 -ad 20000 -lw 5e-06",
+    "role": "convergence reference"
+  },
+  "ab12": {
+    "radiance_par": "-ab 12 -ad 20000 -lw 1e-06",
+    "role": "ladder check, 10 L-shaped rooms"
+  }
+}
