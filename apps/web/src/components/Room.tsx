@@ -281,13 +281,17 @@ export default function Room() {
             ΩΦ OmegaFlux Web Engine
           </h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.5rem' }}>
-            Daylight prediction without neural networks. Online daylight prediction check.
+            Per-sensor daylight (UDI) prediction in the browser. No simulation, no server.
           </p>
           <p style={{ color: 'var(--text-muted)', fontWeight: '600', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
-          Analytic radiometric descriptors enable geometry-flexible per-sensor daylight prediction without learned spatial encodings
+          Daylight prediction from per-sensor geometric descriptors: descriptor selection for transfer to unseen room shapes
           </p>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '1.1rem' }}>
             <i>Tabular data is all you need!</i>
+          </p>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0, fontSize: '0.95rem' }}>
+            Trained for the Warsaw climate, fixed surface reflectances and glazing, room height 2.7 m and no external
+            obstruction (rectangular rooms 4–6 m, L-shaped rooms 5–12 m). Best used to compare design variants.
           </p>
         </div>
       </header>

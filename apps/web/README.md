@@ -47,7 +47,7 @@ apps/web/
 │   │   ├── RoomVisualizer.tsx     # 2D Canvas/SVG grid rendering
 │   │   ├── Slider.tsx             # Reusable UI range slider
 │   │   └── WindowDashboard.tsx    # Active window parameters view
-│   ├── engine.ts                  # Client-side 26-feature geometric extractor
+│   ├── engine.ts                  # Client-side geometric extractor (26 candidate descriptors)
 │   ├── types.ts                   # TypeScript interfaces (RoomDimensions, WindowSpecs)
 │   ├── App.tsx                    # Root React component
 │   └── main.tsx                   # Application entry point
@@ -90,7 +90,7 @@ Open your browser at http://localhost:5173
    Whenever the user updates room topology or window sliders, the application samples the floor plate at `0.25 m` intervals. For each coordinate $(x, y)$, `extractFeatures()` constructs 3D aperture geometries and evaluates the 26 candidate descriptors exactly as the `omegaflux` Python extractor does, and passes the ones listed in `public/models/features.json` (12 for v1.1.0 models) to the model.
 
 2. **Batch Inference (`src/components/Room.tsx`):**
-   The extracted feature array for all grid points $[N \times 26]$ is flattened into a single `Float32Array` and wrapped inside an `onnxruntime-web` tensor.
+   The model's descriptor columns for all grid points $[N \times F]$, with $F$ = 12 for v1.1.0 models, are flattened into a single `Float32Array` and wrapped inside an `onnxruntime-web` tensor.
 
 3. **Concurrency & Thread Safety:**
    ONNX sessions (`OmegaFluxLow.onnx` and `OmegaFluxUp.onnx`) run sequentially using a global promise mutex queue. This prevents WebAssembly thread lock collisions during rapid slider movements and React Strict Mode re-mounts.
