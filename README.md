@@ -4,7 +4,7 @@
 
 # OmegaFlux
 
-**Daylight prediction from per-sensor geometric descriptors: descriptor selection for transfer to unseen room shapes**
+**Selecting geometric descriptors for per-sensor machine learning prediction of daylight in unseen room shapes**
 
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://curiosit.github.io/OmegaFlux/)
 [![DOI](https://zenodo.org/badge/1300499774.svg)](https://doi.org/10.5281/zenodo.21781259)
@@ -27,6 +27,12 @@ The repository accompanies the article above and contains the simulation data, t
 every experiment reported in the paper, the paper figures, a browser application and a Grasshopper
 service.
 
+**Main finding.** Descriptors of the view through the windows, and of the point's position in the
+room, transfer from rectangular to L-shaped rooms. Distances to the nearest window and wall do not:
+in a rectangle the nearest window is always in view, so its distance is a good proxy for light, but in
+an L-shaped room it can be hidden behind the inner corner. Adding them improves accuracy within
+rectangles and lowers it on L-shapes.
+
 | | 12 descriptors | 26 descriptors |
 |---|---|---|
 | Held-out rooms (E1), R² / RMSE | 0.976 / 2.86 pp | 0.986 / 2.17 pp |
@@ -42,12 +48,6 @@ Radiance run.
 
 ![figures/paper/fig_room_examples.png](figures/paper/fig_room_examples.png)
 <em>Simulated (top) and predicted (middle) UDI_useful, and the error (bottom), for four held-out rooms.</em>
-
-**Main finding.** Descriptors of the view through the windows, and of the point's position in the
-room, transfer from rectangular to L-shaped rooms. Distances to the nearest window and wall do not:
-in a rectangle the nearest window is always in view, so its distance is a good proxy for light, but in
-an L-shaped room it can be hidden behind the inner corner. Adding them improves accuracy within
-rectangles and lowers it on L-shapes.
 
 **Scope.** One climate (Warsaw, 52.17° N), fixed reflectances and glazing, room height 2.7 m, no
 external obstruction. On L-shaped rooms the model overestimates UDI_useful at points that see the
@@ -224,8 +224,7 @@ If you use the code or data, please cite the archived release and, once publishe
 > Płoszaj-Mazurek, M. (2026). *OmegaFlux: daylight prediction from per-sensor geometric descriptors*
 > (v1.1.0) [Software and data]. Zenodo. https://doi.org/10.5281/zenodo.21781259
 
-> Płoszaj-Mazurek, M. *Daylight prediction from per-sensor geometric descriptors: descriptor
-> selection for transfer to unseen room shapes.* Submitted to Journal of Building Engineering.
+> Płoszaj-Mazurek, M. *Selecting geometric descriptors for per-sensor machine learning prediction of daylight in unseen room shapes.* Submitted to Solar Energy.
 
 Citation metadata is in [CITATION.cff](CITATION.cff).
 
