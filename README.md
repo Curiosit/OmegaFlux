@@ -7,7 +7,6 @@
 **Daylight prediction from per-sensor geometric descriptors: descriptor selection for transfer to unseen room shapes**
 
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://curiosit.github.io/OmegaFlux/)
-[![Paper](https://img.shields.io/badge/paper-submitted%20(J.%20Build.%20Eng.)-lightgrey)](#citation)
 [![DOI](https://zenodo.org/badge/1300499774.svg)](https://doi.org/10.5281/zenodo.21781259)
 [![Code licence: MIT](https://img.shields.io/badge/code-MIT-green)](LICENSE)
 [![Data licence: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-green)](LICENSE-DATA)
